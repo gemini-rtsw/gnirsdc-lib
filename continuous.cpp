@@ -1,25 +1,37 @@
 #include <iostream>
-#include <unordered_map>
+#include <map>
 #include <string>
 #include <unistd.h>
-#include <pthread.h>
+#include <thread>
+#include <fstream>
+#include <sstream>
+#include <cstring>
+#include "uuid/uuid.h"
+#include "json.h"
 #include "libgnirs.h"
 #include <CExpIFace.h>
 
 struct Config {
 	std::string label;
 	std::string lod_file;
-	int nrows;
-	int ncols;
+	unsigned nrows;
+	unsigned ncols;
 	unsigned frames;
 	float exposure;
 };
 
-static const auto READ_TIMEOUT = 200;
-const int SDSU3_PON_BIT = 0x400000;
+static constexpr auto READ_TIMEOUT = 200;
+static constexpr int SDSU3_PON_BIT = 0x400000;
+static constexpr int MAX_FS = 64; // Twice the usual max
 
-std::unordered_map<std::string, Config> setups{
-	{"vb", {"Very Bright Object - Full frame", "./DSP/Aladdin_2048_1024XnFS_1DS_3V4.lod", 512, 2048, 2}}
+enum class AdcType {
+	ADC_1 = 1,
+	ADC_6 = 6
+};
+
+std::map<AdcType, Config> setups{
+	{AdcType::ADC_1, {"1 ADC per Fowler Sample", "./DSP/Aladdin_2048_1024XnFS_1DS_3V4.lod", 512, 2048}},
+	{AdcType::ADC_6, {"6 ADC per Fowler Sample", "./DSP/Aladdin_12288_1024XnFS_6DS_3V4.lod", 512, 6 * 2048}},
 };
 
 using namespace arc::device;
@@ -54,15 +66,14 @@ private:
 void print_help()
 {
 	std::cerr << "ARC Detector Testing Program\n\n"
-		  << "   testing [-h] [-d] [-r] [-e seconds] <mode>\n\n"
+		  << "   testing [-h] [-d] [-r] [-a #adc] [-s #samples] [-e seconds]\n\n"
 		  << " -h     shows this help page\n"
 		  << " -d     increased debugging output\n"
 		  << " -r     resets the controller as part of the setup\n"
-		  << " -e <s> expose por <s> seconds\n"
+		  << " -a <#> take <#> ADC samples per Fowler [Default: 1; Valid: 1, 6]\n"
+		  << " -s <#> acquire <#> Fowler samples (both for reset and signal) [Default: 1; Max: 64]\n"
+		  << " -e <s> expose por <s> seconds [Default: 0.0]\n"
 		  << " <mode> needs to be one of the following:\n\n";
-	for (auto it=setups.begin(); it != setups.end(); it++) {
-		std::cerr << "     " << (*it).first << "   " << (*it).second.label << "\n";
-	}
 }
 
 /*
@@ -84,7 +95,8 @@ inline void copy_raw(CArcDevice* dev, unsigned short *buf, size_t offset, size_t
 class DataCollector {
 public:
 	DataCollector(const Config &mode);
-	void expose(CArcDevice* dev, float expTime, CExpIFace* exp_iface=nullptr);
+	void expose(CArcDevice* dev, float expTime, std::string basepath, CExpIFace* exp_iface=nullptr);
+	void data_save(std::string prefix, unsigned buffNo, json_object *sample_array);
 
 	virtual ~DataCollector();
 
@@ -92,6 +104,7 @@ private:
 	unsigned dRows;
 	unsigned dCols;
 	unsigned nFrames;
+	unsigned buffSize;
 	unsigned short **buffers;
 };
 
@@ -100,20 +113,20 @@ DataCollector::DataCollector(const Config &mode)
 	  dCols(mode.ncols),
 	  nFrames(mode.frames)
 {
-	unsigned buffSize = dRows * dCols;
-	buffers = new unsigned short *[nFrames];
-	for (unsigned i = 0; i < nFrames; i++)
+	buffSize = dRows * dCols;
+	buffers = new unsigned short *[nFrames * 2];
+	for (unsigned i = 0; i < (nFrames * 2); i++)
 		buffers[i] = new unsigned short[buffSize];
 }
 
 DataCollector::~DataCollector() {
-	for (unsigned i = 0; i < nFrames; i++)
+	for (unsigned i = 0; i < (nFrames * 2); i++)
 		delete buffers[i];
 	delete buffers;
 }
 
 void
-DataCollector::expose(CArcDevice* dev, float expTime, CExpIFace* exp_iface)
+DataCollector::expose(CArcDevice* dev, float expTime, std::string basepath, CExpIFace* exp_iface)
 {
 	int msec = int( expTime * 1000 );
 //	ExposurePhase status = ExposurePhase::FIRST_READOUT;
@@ -123,28 +136,47 @@ DataCollector::expose(CArcDevice* dev, float expTime, CExpIFace* exp_iface)
 		throw std::runtime_error("Set exposure time failed");
 	}
 
-	// Start the exposure
-	if (dev->Command( TIM_ID, SEX ) != DON) {
-		throw std::runtime_error("Starting exposure failed");
+	if (dev->Command( TIM_ID, SFS, nFrames) != DON) {
+		throw std::runtime_error("Set number of frames failed");
 	}
 
 	const unsigned pixelsPerFrame = dRows * dCols;
-	const unsigned totalCount = pixelsPerFrame * nFrames;
+	const unsigned totalCount = pixelsPerFrame * (nFrames * 2);
 	const unsigned rowsPerTransfer = 4;
 	const unsigned pixelsPerTransfer = dCols * rowsPerTransfer; // Copy 4 rows at a time
-//	const int exposeTimeout = (int(expTime * 1000) / 25) + 20; // Exposure time + 0.5s, in 25 millisecond ticks
 	int bufferIndex = 0;
 	unsigned short *currentBuffer = buffers[bufferIndex];
 	int frameCount = 0;
 	unsigned pixelCount = 0;
-//	int timeoutCounter = 0;
-//	float remainingTime = expTime;
-//	int exposingCount = 0;
 	int latestPixelCount = 0;
 	unsigned pixelsCopied = 0;
 	unsigned rowsCopiedThisFrame = 0;
 	unsigned pixelsCopiedThisFrame = 0;
 	unsigned long long loops = 0;
+	std::thread *threads[nFrames * 2];
+
+	json_object *json_output = json_object_new_object();
+	json_object *pdu = json_object_new_object();
+	json_object *samples = json_object_new_array();
+
+	json_object_object_add(json_output, "PDU", pdu);
+	json_object_object_add(json_output, "FRAMES", samples);
+
+	json_object_object_add(pdu, "CAMERA", json_object_new_string("GNIRS"));
+	json_object_object_add(pdu, "DATALABE", json_object_new_string("foobar-vb"));
+	json_object_object_add(pdu, "DATEOBS", json_object_new_string("2021-01-01"));
+	json_object_object_add(pdu, "UTSTART", json_object_new_string("00:00:00.000000"));
+	json_object_object_add(pdu, "UTEND", json_object_new_string("00:00:00.000001"));
+	json_object_object_add(pdu, "LRNS", json_object_new_int(nFrames));
+	json_object_object_add(pdu, "NDAVGS", json_object_new_int(1));
+	json_object_object_add(pdu, "RAW_COLS", json_object_new_int(dCols));
+	json_object_object_add(pdu, "RAW_ROWS", json_object_new_int(dRows * nFrames * 2));
+	json_object_object_add(pdu, "EXPTIME", json_object_new_double(expTime));
+
+	// Start the exposure
+	if (dev->Command( TIM_ID, SEX ) != DON) {
+		throw std::runtime_error("Starting exposure failed");
+	}
 
 	while ( pixelsCopied < totalCount ) {
 		if (pixelCount < totalCount) {
@@ -172,6 +204,7 @@ DataCollector::expose(CArcDevice* dev, float expTime, CExpIFace* exp_iface)
 			pixelsCopied += pixelsPerTransfer;
 
 			if (rowsCopiedThisFrame >= dRows) {
+				threads[bufferIndex] = new std::thread(&DataCollector::data_save, this, basepath, bufferIndex, samples);
 				bufferIndex++;
 				currentBuffer = buffers[bufferIndex];
 				rowsCopiedThisFrame = 0;
@@ -181,89 +214,42 @@ DataCollector::expose(CArcDevice* dev, float expTime, CExpIFace* exp_iface)
 
 		loops++;
 	}
-	/*
-	while ( pixelCount < totalCount ) {
-		bool readingOut = dev->IsReadout();
-		bool exposing = (status == ExposurePhase::FIRST_READOUT) && (pixelCount == (totalCount / 2));
-		int lastPixelCount = pixelCount;
-
-		switch (status) {
-			case ExposurePhase::FIRST_READOUT:
-			case ExposurePhase::SECOND_READOUT:
-				pixelCount = dev->GetPixelCount();
-				if (exposing) {
-					if (!readingOut) {
-						timeoutCounter = 0;
-						status = ExposurePhase::EXPOSING;
-						continue;
-					}
-
-					if (exp_iface != nullptr)
-						exp_iface->ExposeCallback(float(exposingCount * 25) / 1000);
-
-					exposingCount++;
-				}
-
-				if (!exposing && (exp_iface != nullptr))
-					exp_iface->ReadCallback(pixelCount);
-
-				if (dev->ContainsError(pixelCount)) {
-					dev->StopExposure();
-					throw std::runtime_error("Failed to read pixel count");
-				}
-
-
-				if (!exposing) {
-					timeoutCounter = (pixelCount == lastPixelCount) ? (timeoutCounter + 1) : 0;
-
-					if (timeoutCounter >= 800) { // 20s * 40 slices
-						dev->StopExposure();
-						throw std::runtime_error("Read timeout");
-					}
-				}
-				break;
-			case ExposurePhase::EXPOSING:
-				if (readingOut) {
-					if (exp_iface != nullptr)
-						exp_iface->ExposeCallback(expTime);
-					timeoutCounter = 0;
-					status = ExposurePhase::SECOND_READOUT;
-					continue;
-				}
-				if (remainingTime > 0.0) {
-					int ret = dev->Command( TIM_ID, RET );
-
-					if (ret != ROUT) {
-						if (dev->ContainsError(ret) || dev->ContainsError(ret, 0, msec)) {
-							dev->StopExposure();
-							throw std::runtime_error("Failed to read elapsed time");
-						}
-
-						float elapsedTime = (float(ret) / 1000.0);
-						remainingTime = expTime - elapsedTime;
-						if (exp_iface != nullptr)
-							exp_iface->ExposeCallback(elapsedTime);
-
-					}
-				}
-				if ((++timeoutCounter) > exposeTimeout) {
-					dev->StopExposure();
-					throw std::runtime_error("Timeout while exposing");
-				}
-				break;
-
-		}
-	}
-        */
 
 	dev->StopExposure();
 	std::cerr << "Total loops = " << loops << '\n';
+	std::cerr << "Joining threads\n";
+	for (unsigned i = 0; i < (nFrames * 2); i++)
+		if (threads[i] != nullptr) {
+			threads[i]->join();
+			delete threads[i];
+		}
+	std::cerr << "Writing header\n";
+
+	std::ostringstream oss;
+	oss << basepath << ".header";
+	std::ofstream ofs(oss.str());
+
+	ofs << json_object_to_json_string_ext(json_output, JSON_C_TO_STRING_PRETTY) << '\n';
+	json_object_put(json_output);
+}
+
+void DataCollector::data_save(std::string prefix, unsigned buffNo, json_object *sample_array)
+{
+	std::ostringstream oss;
+	oss << prefix << ".frame." << buffNo;
+
+	std::cerr << "Saving buffer " << buffNo << '\n';
+	std::string filename = oss.str();
+	std::ofstream fs(filename);
+	fs.write((const char *)buffers[buffNo], buffSize * sizeof(unsigned short));
+	std::cerr << "Saved buffer " << buffNo << " to file " << oss.str() << '\n';
+	json_object_array_add(sample_array, json_object_new_string(filename.c_str()));
 }
 
 void parse_cmd(int argc, char **argv, Config& mode, bool& reset, bool& debug)
 {
-	bool found_mode = false;
-	bool exp_set = false;
+	unsigned samples = 1;
+	AdcType adcs = AdcType::ADC_1;
 	float exp = 0.0;
 
 	for (int argi = 0; argi < argc; ++argi) {
@@ -286,27 +272,70 @@ void parse_cmd(int argc, char **argv, Config& mode, bool& reset, bool& debug)
 				exit(1);
 			}
 
-			exp_set = true;
 			exp = std::stof(argv[argi]);
+			if (exp < 0.0) {
+				std::cerr << "Negative exposure is not allowed\n";
+				exit(1);
+			}
 		}
-		else {
-			if (setups.count(current) == 0) {
-				std::cerr << "Unknown mode " << current << ". Pass -h if you need a list\n";
+		else if (current == "-s") {
+			++argi;
+			if (argi >= argc) {
+				std::cerr << "Missing argument for -s\n";
 				exit(1);
 			}
 
-			mode = setups.at(current);
-			if (exp_set) {
-				mode.exposure = exp;
+			int samp = std::stoi(argv[argi]);
+			if ((samp < 1) || (samp > MAX_FS)) {
+				std::cerr << "Fowler samples out of range (1 .. " << MAX_FS << ")\n";
+				exit(1);
 			}
-			return;
+			samples = unsigned(samp);
+		}
+		else if (current == "-a") {
+			++argi;
+			if (argi >= argc) {
+				std::cerr << "Missing argument for -a\n";
+				exit(1);
+			}
+
+			int raw_adcs = std::stoi(argv[argi]);
+			switch (raw_adcs) {
+				case 1:
+					adcs = AdcType::ADC_1;
+					break;
+				case 6:
+					adcs = AdcType::ADC_6;
+					break;
+				default:
+					std::cerr << "Illegal ADC number: " << argv[argi] << '\n';
+					exit(1);
+			}
+		}
+		else {
+			std::cerr << "Unknown argument " << argv[argi] << '\n';
+			exit(1);
 		}
 	}
 
-	if (!found_mode) {
-		std::cerr << "Need an operating mode. Pass -h if you need a list\n";
+	if (setups.count(adcs) == 0) {
+		std::cerr << "Something went wrong: no mode found for the configured ADCs\n";
 		exit(1);
 	}
+
+	mode = setups.at(adcs);
+	mode.exposure = exp;
+	mode.frames = samples;
+}
+
+std::string get_uuid() {
+	uuid_t uuid;
+	char uuid_string[40];
+
+	uuid_generate(uuid);
+	uuid_unparse(uuid, uuid_string);
+
+	return std::string(uuid_string);
 }
 
 int main(int argc, char **argv) {
@@ -346,7 +375,7 @@ int main(int argc, char **argv) {
 	ExpIFace callbacks(debug);
 //	cont.start_logging();
 	DataCollector collector(mode);
-	collector.expose(cont.getDev(), mode.exposure, &callbacks);
+	collector.expose(cont.getDev(), mode.exposure, get_uuid(), &callbacks);
 //	cont.stop_logging(std::cout);
 //	custom_expose(cont.getDev(), mode.exposure, mode.nrows, mode.ncols, &callbacks);
 
