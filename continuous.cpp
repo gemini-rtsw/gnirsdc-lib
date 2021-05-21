@@ -83,8 +83,7 @@ void print_help()
 		  << " -r     resets the controller as part of the setup\n"
 		  << " -a <#> take <#> ADC samples per Fowler [Default: 1; Valid: 1, 6]\n"
 		  << " -s <#> acquire <#> Fowler samples (both for reset and signal) [Default: 1; Max: 64]\n"
-		  << " -e <s> expose por <s> seconds [Default: 0.0]\n"
-		  << " <mode> needs to be one of the following:\n\n";
+		  << " -e <s> expose por <s> seconds [Default: 0.0]\n";
 }
 
 /*
