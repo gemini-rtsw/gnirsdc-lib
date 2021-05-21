@@ -208,7 +208,7 @@ void json_set_datalabel(json_object *job, std::string prefix, unsigned nFrames, 
 class DataCollector {
 public:
 	DataCollector(const Config &mode);
-	void expose(CArcDevice* dev, float expTime, std::string basepath, std::string basename, CExpIFace* exp_iface=nullptr);
+	void expose(Controller* cont, CArcDevice* dev, float expTime, std::string basepath, std::string basename, CExpIFace* exp_iface=nullptr);
 	void data_save(std::string path, std::string prefix, unsigned buffNo, json_object *sample_array);
 
 	virtual ~DataCollector();
@@ -241,7 +241,7 @@ DataCollector::~DataCollector() {
 }
 
 void
-DataCollector::expose(CArcDevice* dev, float expTime, std::string basepath, std::string basename, CExpIFace* exp_iface)
+DataCollector::expose(Controller* cont, CArcDevice* dev, float expTime, std::string basepath, std::string basename, CExpIFace* exp_iface)
 {
 	int msec = int( expTime * 1000 );
 //	ExposurePhase status = ExposurePhase::FIRST_READOUT;
@@ -319,6 +319,7 @@ DataCollector::expose(CArcDevice* dev, float expTime, std::string basepath, std:
 		}
 
 		if ((pixelCount - pixelsCopied) >= pixelsPerTransfer) {
+
 			copy_raw(dev, currentBuffer, pixelsCopiedThisFrame, pixelsPerTransfer);
 
 			rowsCopiedThisFrame += rowsPerTransfer;
@@ -328,6 +329,8 @@ DataCollector::expose(CArcDevice* dev, float expTime, std::string basepath, std:
 			if (rowsCopiedThisFrame >= dRows) {
 				clock.add_measurement(steady_clock::now());
 				threads[bufferIndex] = new std::thread(&DataCollector::data_save, this, basepath, basename, bufferIndex, samples);
+				
+				cont->save_to(basename + std::to_string(bufferIndex) + ".fits");
 
 				if (reading_reset && (clock.timing_index() > nFrames)) {
 					reading_reset = false;
@@ -513,11 +516,11 @@ int main(int argc, char **argv) {
 	ExpIFace callbacks(debug);
 //	cont.start_logging();
 	DataCollector collector(mode);
-	collector.expose(cont.getDev(), mode.exposure, "raw/", get_uuid(), &callbacks);
+	collector.expose(&cont, cont.getDev(), mode.exposure, "raw/", get_uuid(), &callbacks);
 //	cont.stop_logging(std::cout);
 //	custom_expose(cont.getDev(), mode.exposure, mode.nrows, mode.ncols, &callbacks);
 
-//	cont.save_to("test_file2.fits");
+	cont.save_to("test_file2.fits");
 
 	return 0;
 }

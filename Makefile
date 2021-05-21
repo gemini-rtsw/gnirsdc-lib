@@ -1,5 +1,5 @@
-CPPFLAGS=-std=c++11 -I/home/rcardene/local/include -I/usr/include/json-c12 -Wall -Werror
-LDFLAGS=-L/home/rcardene/local/lib -Wl,-rpath=/home/rcardene/local/lib
+CPPFLAGS=-std=c++11 -I/home/hstecher/local/include -I/usr/include/json-c12 -Wall -Werror
+LDFLAGS=-L/home/hstecher/local/lib -Wl,-rpath=/home/hstecher/local/lib
 LDLIBS=-lCArcDevice -lCArcDeinterlace -lCArcFitsFile -lcfitsio -ljson-c12 -luuid -lpthread
 
 TARGETS=testing continuous # rtest ptest
