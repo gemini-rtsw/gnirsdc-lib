@@ -261,6 +261,10 @@ DataCollector::expose(Controller* cont, CArcDevice* dev, float expTime, std::str
 		throw std::runtime_error("Set analog digital samples failed");
 	}
 
+
+std::cerr << "Rows x Cols: " << dRows << " x " << dCols << '\n';
+
+
 	const unsigned pixelsPerFrame = dRows * dCols;
 	const unsigned totalCount = pixelsPerFrame * (nFrames * 2);
 	const unsigned rowsPerTransfer = 4;
