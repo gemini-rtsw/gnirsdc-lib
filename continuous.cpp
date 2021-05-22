@@ -8,6 +8,8 @@
 #include <cstring>
 #include <ctime>
 #include <chrono>
+#include <queue>
+#include <vector>
 #include "uuid/uuid.h"
 #include "json.h"
 #include "libgnirs.h"
@@ -206,13 +208,15 @@ void json_set_datalabel(json_object *job, std::string prefix, unsigned nFrames, 
 class DataCollector {
 public:
 	DataCollector(Pixel *origin, size_t totalPixels, const std::string &basePath, const std::string &baseFileName, int buffNo);
-	void data_save(json_object *sample_array);
+	std::string getFileName() const { return fileName; };
+	bool full() const { return currentOffset >= buffSize; }
+	void data_save() const;
 
 	inline void update(size_t count)
 	{
 		Pixel *buffNow = &buffer[currentOffset];
 
-		if (currentOffset >= buffSize) {
+		if (full()) {
 			return;
 		}
 		else if ((buffNow + count) > buffLimit) {
@@ -274,13 +278,17 @@ DataCollector::~DataCollector() {
 	delete buffer;
 }
 
-void DataCollector::data_save(json_object *sample_array)
+void DataCollector::data_save() const
 {
 	std::ofstream fs(path);
 	fs.write((const char *)buffer, buffSize * sizeof(Pixel));
 	std::cerr << "Saved buffer to file " << fileName << '\n';
-	json_object_array_add(sample_array, json_object_new_string(fileName.c_str()));
 }
+
+struct Transfer {
+	DataCollector *collector;
+	size_t count;
+};
 
 void
 Camera::expose(float expTime, std::string basepath, std::string basename, CExpIFace* exp_iface)
@@ -301,22 +309,13 @@ Camera::expose(float expTime, std::string basepath, std::string basename, CExpIF
 	const unsigned totalCount = pixelsPerFrame * (nFrames * 2);
 	const unsigned pixelsPerTransfer = dCols * rowsPerTransfer; // Copy 4 rows at a time
 	int frameIndex = 0;
-
-	DataCollector *collectors[nFrames * 2];
-	for (unsigned i = 0; i < (nFrames * 2); i++) {
-		collectors[i] = new DataCollector((Pixel *)dev->CommonBufferVA(), dRows * dCols, basepath, basename, i);
-	}
-
-	DataCollector *currentCollector = collectors[frameIndex];
-
-	int frameCount = 0;
 	unsigned pixelCount = 0;
 	int latestPixelCount = 0;
 	unsigned pixelsCopied = 0;
 	unsigned rowsCopiedThisFrame = 0;
 	unsigned pixelsCopiedThisFrame = 0;
 	unsigned long long loops = 0;
-	std::thread *threads[nFrames * 2];
+	std::vector<std::thread *>threads;
 
 	json_object *json_output = json_object_new_object();
 	json_object *pdu = json_object_new_object();
@@ -335,6 +334,16 @@ Camera::expose(float expTime, std::string basepath, std::string basename, CExpIF
 	json_object_object_add(pdu, "RAW_ROWS", json_object_new_int(dRows * nFrames * 2));
 	json_object_object_add(pdu, "EXPTIME", json_object_new_double(expTime));
 	json_set_gmdate(pdu, "DATEOBS");
+
+
+	DataCollector *collectors[nFrames * 2];
+	for (unsigned i = 0; i < (nFrames * 2); i++) {
+		collectors[i] = new DataCollector((Pixel *)dev->CommonBufferVA(), dRows * dCols, basepath, basename, i);
+		json_object_array_add(samples, json_object_new_string(collectors[i]->getFileName().c_str()));
+	}
+
+	DataCollector *currentCollector = collectors[frameIndex];
+	std::queue<Transfer> transfers;
 
 	// Create the clock object just before starting the exposure (this will set the reference)
 	Clock clock;
@@ -359,7 +368,6 @@ Camera::expose(float expTime, std::string basepath, std::string basename, CExpIF
 					waiting_for_signal = false;
 				}
 				if (diff < 0) {
-					frameCount ++;
 					diff = (pixelsPerFrame - latestPixelCount) + pixelRead;
 				}
 				pixelCount += diff;
@@ -368,7 +376,15 @@ Camera::expose(float expTime, std::string basepath, std::string basename, CExpIF
 		}
 
 		if ((pixelCount - pixelsCopied) >= pixelsPerTransfer) {
-			currentCollector->update(pixelsPerTransfer);
+			transfers.push({currentCollector, pixelsPerTransfer});
+			if (transfers.size() > lagBy) {
+				Transfer t(transfers.front());
+				transfers.pop();
+				t.collector->update(t.count);
+				if (t.collector->full()) {
+					threads.push_back(new std::thread(&DataCollector::data_save, t.collector));
+				}
+			}
 
 			rowsCopiedThisFrame += rowsPerTransfer;
 			pixelsCopiedThisFrame += pixelsPerTransfer;
@@ -376,7 +392,6 @@ Camera::expose(float expTime, std::string basepath, std::string basename, CExpIF
 
 			if (rowsCopiedThisFrame >= dRows) {
 				clock.add_measurement(steady_clock::now());
-				threads[frameIndex] = new std::thread(&DataCollector::data_save, currentCollector, samples);
 
 				if (reading_reset && (clock.timing_index() > nFrames)) {
 					reading_reset = false;
@@ -395,15 +410,22 @@ Camera::expose(float expTime, std::string basepath, std::string basename, CExpIF
 		loops++;
 	}
 	auto ut_end = steady_clock::now();
+	while (transfers.size() > 0) {
+		Transfer t(transfers.front());
+		transfers.pop();
+		t.collector->update(t.count);
+		if (t.collector->full()) {
+			threads.push_back(new std::thread(&DataCollector::data_save, t.collector));
+		}
+	}
 
 	dev->StopExposure();
 	std::cerr << "Total loops = " << loops << '\n';
 	std::cerr << "Joining threads\n";
-	for (unsigned i = 0; i < (nFrames * 2); i++)
-		if (threads[i] != nullptr) {
-			threads[i]->join();
-			delete threads[i];
-		}
+	for (auto t: threads) {
+		t->join();
+		delete t;
+	}
 	std::cerr << "Writing header\n";
 	clock.json_set_gmtime(pdu, "UTSTART", ut_start);
 	clock.json_set_gmtime(pdu, "UTEND", ut_end);
