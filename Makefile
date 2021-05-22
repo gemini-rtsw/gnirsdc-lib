@@ -1,8 +1,8 @@
-CPPFLAGS=-std=c++11 -I/home/hstecher/local/include -I/usr/include/json-c12 -Wall -Werror
-LDFLAGS=-L/home/hstecher/local/lib -Wl,-rpath=/home/hstecher/local/lib
+CPPFLAGS=-std=c++11 -I/home/hstecher/local/include -I/usr/include/json-c12 -Wall -g  -Werror 
+LDFLAGS=-L/home/hstecher/local/lib -g -Wl,-rpath=/home/hstecher/local/lib 
 LDLIBS=-lCArcDevice -lCArcDeinterlace -lCArcFitsFile -lcfitsio -ljson-c12 -luuid -lpthread
 
-TARGETS=testing continuous # rtest ptest
+TARGETS=testing continuous unified # rtest ptest
 CPPDEPS=libgnirs.cpp
 HDEPS=libgnirs.h
 

@@ -13,6 +13,9 @@
 #include "libgnirs.h"
 #include <CExpIFace.h>
 
+#define SFS			0x00534653	// Send Fowler Sample
+#define SDS			0x00534453	// Send Fowler Sample
+
 struct Config {
 	std::string label;
 	std::string lod_file;
@@ -34,17 +37,15 @@ using std::to_string;
 static constexpr auto READ_TIMEOUT = 200;
 static constexpr int SDSU3_PON_BIT = 0x400000;
 static constexpr int MAX_FS = 64; // Twice the usual max
+static constexpr int MAX_ADCS = 12; // Twice the usual max
+static constexpr int ROWS_PER_FRAME = 512;
+static constexpr int COLS_PER_FRAME = 2048; // Twice the usual max
 
 enum class AdcType {
 	ADC_1 = 1,
 	ADC_6 = 6
 };
 
-std::map<AdcType, Config> setups{
-	//{AdcType::ADC_1, {"1 ADC per Fowler Sample", "./DSP/Aladdin_2048_1024XnFS_1DS_3V4.lod", 512, 2048, 1}},
-	{AdcType::ADC_1, {"1 ADC per Fowler Sample", "./DSP/Aladdin_SDSU_Firmware.lod", 512, 2048, 1}},
-	{AdcType::ADC_6, {"6 ADC per Fowler Sample", "./DSP/Aladdin_12288_1024XnFS_6DS_3V4.lod", 512, 6 * 2048, 6}},
-};
 
 using namespace arc::device;
 using namespace arc::deinterlace;
@@ -256,6 +257,10 @@ DataCollector::expose(Controller* cont, CArcDevice* dev, float expTime, std::str
 		throw std::runtime_error("Set number of frames failed");
 	}
 
+	if (dev->Command( TIM_ID, SDS, nADCs) != DON) {
+		throw std::runtime_error("Set analog digital samples failed");
+	}
+
 	const unsigned pixelsPerFrame = dRows * dCols;
 	const unsigned totalCount = pixelsPerFrame * (nFrames * 2);
 	const unsigned rowsPerTransfer = 4;
@@ -391,7 +396,7 @@ void DataCollector::data_save(std::string path, std::string prefix, unsigned buf
 void parse_cmd(int argc, char **argv, Config& mode, bool& reset, bool& debug)
 {
 	unsigned samples = 1;
-	AdcType adcs = AdcType::ADC_1;
+	unsigned nadcs = 1;
 	float exp = 0.0;
 
 	for (int argi = 0; argi < argc; ++argi) {
@@ -442,17 +447,11 @@ void parse_cmd(int argc, char **argv, Config& mode, bool& reset, bool& debug)
 			}
 
 			int raw_adcs = std::stoi(argv[argi]);
-			switch (raw_adcs) {
-				case 1:
-					adcs = AdcType::ADC_1;
-					break;
-				case 6:
-					adcs = AdcType::ADC_6;
-					break;
-				default:
-					std::cerr << "Illegal ADC number: " << argv[argi] << '\n';
-					exit(1);
+			if ((raw_adcs < 1) || (raw_adcs > MAX_ADCS)) {
+				std::cerr << "Illegal ADC number:  " << MAX_ADCS << ")\n";
+				exit(1);
 			}
+			nadcs = unsigned(raw_adcs);
 		}
 		else {
 			std::cerr << "Unknown argument " << argv[argi] << '\n';
@@ -460,14 +459,12 @@ void parse_cmd(int argc, char **argv, Config& mode, bool& reset, bool& debug)
 		}
 	}
 
-	if (setups.count(adcs) == 0) {
-		std::cerr << "Something went wrong: no mode found for the configured ADCs\n";
-		exit(1);
-	}
-
-	mode = setups.at(adcs);
 	mode.exposure = exp;
 	mode.frames = samples;
+	mode.nadcs = nadcs;
+
+	mode.nrows = ROWS_PER_FRAME;
+        mode.ncols = COLS_PER_FRAME * mode.nadcs; 
 }
 
 std::string get_uuid() {
@@ -483,7 +480,9 @@ std::string get_uuid() {
 int main(int argc, char **argv) {
 	bool reset = false;
 	bool debug = false;
-	Config mode{"", "", 0, 0, 0, 0, 0.0};
+	Config mode{"", "./DSP/Aladdin_SDSU_Firmware.lod", 512, 2048, 1, 1, 0.0};
+//	Config mode{"", "./DSP/Aladdin_2048_1024XnFS_1DS_3V4.lod", 512, 2048, 1, 1, 0.0};
+
 
 	parse_cmd(argc-1, &argv[1], mode, reset, debug);
 
@@ -521,7 +520,7 @@ int main(int argc, char **argv) {
 //	cont.stop_logging(std::cout);
 //	custom_expose(cont.getDev(), mode.exposure, mode.nrows, mode.ncols, &callbacks);
 
-	cont.save_to("test_file2.fits");
+//	cont.save_to("test_file2.fits");
 
 	return 0;
 }
