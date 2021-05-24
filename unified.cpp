@@ -8,6 +8,8 @@
 #include <cstring>
 #include <ctime>
 #include <chrono>
+#include <queue>
+#include <vector>
 #include "uuid/uuid.h"
 #include "json.h"
 #include "libgnirs.h"
@@ -15,6 +17,11 @@
 
 #define SFS			0x00534653	// Send Fowler Sample
 #define SDS			0x00534453	// Send Fowler Sample
+
+#define SBL			0x0053424C
+#define SBV			0x00534256
+#define SBH			0x00534248
+
 
 struct Config {
 	std::string label;
@@ -32,7 +39,9 @@ using std::chrono::microseconds;
 using std::chrono::seconds;
 using sys_time_point = std::chrono::time_point<system_clock>;
 using sty_time_point = std::chrono::time_point<steady_clock>;
+
 using std::to_string;
+using Pixel = unsigned short;
 
 static constexpr auto READ_TIMEOUT = 200;
 static constexpr int SDSU3_PON_BIT = 0x400000;
@@ -41,10 +50,8 @@ static constexpr int MAX_ADCS = 12; // Twice the usual max
 static constexpr int ROWS_PER_FRAME = 512;
 static constexpr int COLS_PER_FRAME = 2048; // Twice the usual max
 
-enum class AdcType {
-	ADC_1 = 1,
-	ADC_6 = 6
-};
+static constexpr unsigned rowsPerTransfer = 64;
+static constexpr unsigned lagBy = 1;
 
 
 using namespace arc::device;
@@ -88,10 +95,6 @@ void print_help()
 		  << " -e <s> expose por <s> seconds [Default: 0.0]\n";
 }
 
-/*
- * custom_expose is a high-level exposure function tailored specifically for the timing files
- * written for GNIRS/ARC
- */
 
 enum class ExposurePhase {
 	FIRST_READOUT,
@@ -99,10 +102,9 @@ enum class ExposurePhase {
 	SECOND_READOUT
 };
 
-inline void copy_raw(CArcDevice* dev, unsigned short *buf, size_t offset, size_t count)
-{
-	std::memcpy(buf + offset, ((unsigned short *)dev->CommonBufferVA()) + offset, count * sizeof(unsigned short));
-}
+struct CopyInfo {
+	unsigned buffNo;
+};
 
 std::string left_justify(std::string s, int size, char fillchar) {
 	int nfill = size - s.length();
@@ -202,51 +204,106 @@ void json_set_datalabel(json_object *job, std::string prefix, unsigned nFrames, 
 	std::string name = prefix;
 
 	name = prefix + "-" + to_string(nFrames) + "x" + to_string(nFrames)
-	       	      + "-" + to_string(nADCs) + "adc" +
+	       	      + "-" + to_string(nADCs) + "ds" +
 		      + "-" + get_date() + "-" + get_time();
 	json_object_object_add(job, "DATALABE", json_object_new_string(name.c_str()));
 }
 
 class DataCollector {
 public:
-	DataCollector(const Config &mode);
-	void expose(Controller* cont, CArcDevice* dev, float expTime, std::string basepath, std::string basename, CExpIFace* exp_iface=nullptr);
-	void data_save(std::string path, std::string prefix, unsigned buffNo, json_object *sample_array);
+	DataCollector(Pixel *origin, size_t totalPixels, const std::string &basePath, const std::string &baseFileName, int buffNo);
+	std::string getFileName() const { return fileName; };
+	bool full() const { return currentOffset >= buffSize; }
+	void data_save() const;
+
+	inline void update(size_t count)
+	{
+		Pixel *buffNow = &buffer[currentOffset];
+
+		if (full()) {
+			return;
+		}
+		else if ((buffNow + count) > buffLimit) {
+			count = buffLimit - buffNow;
+		}
+
+		std::memcpy(buffNow, &origBuffer[currentOffset], count * sizeof(Pixel));
+
+		currentOffset += count;
+	}
 
 	virtual ~DataCollector();
 
 private:
+	size_t buffSize;
+	size_t currentOffset;
+
+	Pixel *origBuffer;
+	Pixel *buffer;
+	Pixel *buffLimit;
+	std::string path;
+	std::string fileName;
+};
+
+class Camera {
+public:
+	Camera(CArcDevice *pDevice, const Config &mode);
+	void expose(Controller* cont, float expTime, std::string basepath, std::string basename, CExpIFace* exp_iface=nullptr);
+private:
+	CArcDevice *dev;
 	unsigned dRows;
 	unsigned dCols;
 	unsigned nFrames;
 	unsigned nADCs;
-	unsigned buffSize;
-	unsigned short **buffers;
 };
 
-DataCollector::DataCollector(const Config &mode)
-	: dRows(mode.nrows),
+Camera::Camera(CArcDevice *pDevice, const Config &mode)
+	: dev(pDevice),
+	  dRows(mode.nrows),
 	  dCols(mode.ncols),
 	  nFrames(mode.frames),
 	  nADCs(mode.nadcs)
 {
-	buffSize = dRows * dCols;
-	buffers = new unsigned short *[nFrames * 2];
-	for (unsigned i = 0; i < (nFrames * 2); i++)
-		buffers[i] = new unsigned short[buffSize];
+}
+
+DataCollector::DataCollector(Pixel *origin, size_t totalPixels, const std::string &basePath, const std::string &baseFileName, int buffNo)
+	: buffSize(totalPixels),
+       	  currentOffset(0),
+	  origBuffer(origin)
+{
+       	buffer = new Pixel[buffSize];
+	buffLimit = &buffer[buffSize];
+
+	fileName = baseFileName + std::string(".frame.") + to_string(buffNo);
+	path = basePath + fileName;
 }
 
 DataCollector::~DataCollector() {
-	for (unsigned i = 0; i < (nFrames * 2); i++)
-		delete buffers[i];
-	delete buffers;
+	delete buffer;
 }
 
+void DataCollector::data_save() const
+{
+	std::ofstream fs(path);
+	fs.write((const char *)buffer, buffSize * sizeof(Pixel));
+	std::cerr << "Saved buffer to file " << fileName << '\n';
+}
+
+struct Transfer {
+	DataCollector *collector;
+	size_t count;
+};
+
 void
-DataCollector::expose(Controller* cont, CArcDevice* dev, float expTime, std::string basepath, std::string basename, CExpIFace* exp_iface)
+Camera::expose(Controller* cont, float expTime, std::string basepath, std::string basename, CExpIFace* exp_iface)
 {
 	int msec = int( expTime * 1000 );
 //	ExposurePhase status = ExposurePhase::FIRST_READOUT;
+
+	// Setting the bias voltage 
+	if (dev->Command( TIM_ID, SBH ) != DON) {
+		throw std::runtime_error("Set bias voltage");
+	}
 
 	// Setting the exposure time
 	if (dev->Command( TIM_ID, SET, msec ) != DON) {
@@ -261,25 +318,19 @@ DataCollector::expose(Controller* cont, CArcDevice* dev, float expTime, std::str
 		throw std::runtime_error("Set analog digital samples failed");
 	}
 
-
 std::cerr << "Rows x Cols: " << dRows << " x " << dCols << '\n';
-
 
 	const unsigned pixelsPerFrame = dRows * dCols;
 	const unsigned totalCount = pixelsPerFrame * (nFrames * 2);
-	const unsigned rowsPerTransfer = 4;
 	const unsigned pixelsPerTransfer = dCols * rowsPerTransfer; // Copy 4 rows at a time
-	int bufferIndex = 0;
-	unsigned short *currentBuffer = buffers[bufferIndex];
-	int frameCount = 0;
+	int frameIndex = 0;
 	unsigned pixelCount = 0;
 	int latestPixelCount = 0;
 	unsigned pixelsCopied = 0;
 	unsigned rowsCopiedThisFrame = 0;
 	unsigned pixelsCopiedThisFrame = 0;
 	unsigned long long loops = 0;
-	std::thread *threads[nFrames * 2];
-	Clock clock;
+	std::vector<std::thread *>threads;
 
 	json_object *json_output = json_object_new_object();
 	json_object *pdu = json_object_new_object();
@@ -299,6 +350,18 @@ std::cerr << "Rows x Cols: " << dRows << " x " << dCols << '\n';
 	json_object_object_add(pdu, "EXPTIME", json_object_new_double(expTime));
 	json_set_gmdate(pdu, "DATEOBS");
 
+
+	DataCollector *collectors[nFrames * 2];
+	for (unsigned i = 0; i < (nFrames * 2); i++) {
+		collectors[i] = new DataCollector((Pixel *)dev->CommonBufferVA(), dRows * dCols, basepath, basename, i);
+		json_object_array_add(samples, json_object_new_string(collectors[i]->getFileName().c_str()));
+	}
+
+	DataCollector *currentCollector = collectors[frameIndex];
+	std::queue<Transfer> transfers;
+
+	// Create the clock object just before starting the exposure (this will set the reference)
+	Clock clock;
 	// Start the exposure
 	if (dev->Command( TIM_ID, SEX ) != DON) {
 		throw std::runtime_error("Starting exposure failed");
@@ -320,7 +383,6 @@ std::cerr << "Rows x Cols: " << dRows << " x " << dCols << '\n';
 					waiting_for_signal = false;
 				}
 				if (diff < 0) {
-					frameCount ++;
 					diff = (pixelsPerFrame - latestPixelCount) + pixelRead;
 				}
 				pixelCount += diff;
@@ -329,18 +391,26 @@ std::cerr << "Rows x Cols: " << dRows << " x " << dCols << '\n';
 		}
 
 		if ((pixelCount - pixelsCopied) >= pixelsPerTransfer) {
-
-			copy_raw(dev, currentBuffer, pixelsCopiedThisFrame, pixelsPerTransfer);
+			transfers.push({currentCollector, pixelsPerTransfer});
+			if (transfers.size() > lagBy) {
+				Transfer t(transfers.front());
+				transfers.pop();
+				t.collector->update(t.count);
+				if (t.collector->full()) {
+					threads.push_back(new std::thread(&DataCollector::data_save, t.collector));
+				}
+			}
 
 			rowsCopiedThisFrame += rowsPerTransfer;
 			pixelsCopiedThisFrame += pixelsPerTransfer;
 			pixelsCopied += pixelsPerTransfer;
 
+
+			cont->save_to(basename + std::to_string(frameIndex) + ".fits");
+
+
 			if (rowsCopiedThisFrame >= dRows) {
 				clock.add_measurement(steady_clock::now());
-				threads[bufferIndex] = new std::thread(&DataCollector::data_save, this, basepath, basename, bufferIndex, samples);
-				
-				cont->save_to(basename + std::to_string(bufferIndex) + ".fits");
 
 				if (reading_reset && (clock.timing_index() > nFrames)) {
 					reading_reset = false;
@@ -349,8 +419,8 @@ std::cerr << "Rows x Cols: " << dRows << " x " << dCols << '\n';
 					clock.set_timing_index(0);
 				}
 
-				bufferIndex++;
-				currentBuffer = buffers[bufferIndex];
+				frameIndex++;
+				currentCollector = collectors[frameIndex];
 				rowsCopiedThisFrame = 0;
 				pixelsCopiedThisFrame = 0;
 			}
@@ -359,15 +429,22 @@ std::cerr << "Rows x Cols: " << dRows << " x " << dCols << '\n';
 		loops++;
 	}
 	auto ut_end = steady_clock::now();
+	while (transfers.size() > 0) {
+		Transfer t(transfers.front());
+		transfers.pop();
+		t.collector->update(t.count);
+		if (t.collector->full()) {
+			threads.push_back(new std::thread(&DataCollector::data_save, t.collector));
+		}
+	}
 
 	dev->StopExposure();
 	std::cerr << "Total loops = " << loops << '\n';
 	std::cerr << "Joining threads\n";
-	for (unsigned i = 0; i < (nFrames * 2); i++)
-		if (threads[i] != nullptr) {
-			threads[i]->join();
-			delete threads[i];
-		}
+	for (auto t: threads) {
+		t->join();
+		delete t;
+	}
 	std::cerr << "Writing header\n";
 	clock.json_set_gmtime(pdu, "UTSTART", ut_start);
 	clock.json_set_gmtime(pdu, "UTEND", ut_end);
@@ -384,24 +461,8 @@ std::cerr << "Rows x Cols: " << dRows << " x " << dCols << '\n';
 	json_object_put(json_output);
 }
 
-void DataCollector::data_save(std::string path, std::string prefix, unsigned buffNo, json_object *sample_array)
-{
-	std::ostringstream oss;
-	oss << prefix << ".frame." << buffNo;
-
-	std::cerr << "Saving buffer " << buffNo << '\n';
-	std::string filename = oss.str();
-	std::ofstream fs(path + filename);
-	fs.write((const char *)buffers[buffNo], buffSize * sizeof(unsigned short));
-	std::cerr << "Saved buffer " << buffNo << " to file " << oss.str() << '\n';
-	json_object_array_add(sample_array, json_object_new_string(filename.c_str()));
-}
-
 void parse_cmd(int argc, char **argv, Config& mode, bool& reset, bool& debug)
 {
-	unsigned samples = 1;
-	unsigned nadcs = 1;
-	float exp = 0.0;
 
 	for (int argi = 0; argi < argc; ++argi) {
 		std::string current(argv[argi]);
@@ -423,11 +484,12 @@ void parse_cmd(int argc, char **argv, Config& mode, bool& reset, bool& debug)
 				exit(1);
 			}
 
-			exp = std::stof(argv[argi]);
+			float exp = std::stof(argv[argi]);
 			if (exp < 0.0) {
 				std::cerr << "Negative exposure is not allowed\n";
 				exit(1);
 			}
+			mode.exposure = exp;
 		}
 		else if (current == "-s") {
 			++argi;
@@ -441,7 +503,7 @@ void parse_cmd(int argc, char **argv, Config& mode, bool& reset, bool& debug)
 				std::cerr << "Fowler samples out of range (1 .. " << MAX_FS << ")\n";
 				exit(1);
 			}
-			samples = unsigned(samp);
+			mode.frames = unsigned(samp);
 		}
 		else if (current == "-a") {
 			++argi;
@@ -450,22 +512,19 @@ void parse_cmd(int argc, char **argv, Config& mode, bool& reset, bool& debug)
 				exit(1);
 			}
 
-			int raw_adcs = std::stoi(argv[argi]);
-			if ((raw_adcs < 1) || (raw_adcs > MAX_ADCS)) {
-				std::cerr << "Illegal ADC number:  " << MAX_ADCS << ")\n";
+			int na = std::stoi(argv[argi]);
+			if ((na < 1) || (na > MAX_FS)) {
+				std::cerr << "Analog Digital Conversions out of range (1.. " << MAX_ADCS << ")\n";
 				exit(1);
 			}
-			nadcs = unsigned(raw_adcs);
+			mode.nadcs = unsigned(na);
+
 		}
 		else {
 			std::cerr << "Unknown argument " << argv[argi] << '\n';
 			exit(1);
 		}
 	}
-
-	mode.exposure = exp;
-	mode.frames = samples;
-	mode.nadcs = nadcs;
 
 	mode.nrows = ROWS_PER_FRAME;
         mode.ncols = COLS_PER_FRAME * mode.nadcs; 
@@ -484,9 +543,8 @@ std::string get_uuid() {
 int main(int argc, char **argv) {
 	bool reset = false;
 	bool debug = false;
+	
 	Config mode{"", "./DSP/Aladdin_SDSU_Firmware.lod", 512, 2048, 1, 1, 0.0};
-//	Config mode{"", "./DSP/Aladdin_2048_1024XnFS_1DS_3V4.lod", 512, 2048, 1, 1, 0.0};
-
 
 	parse_cmd(argc-1, &argv[1], mode, reset, debug);
 
@@ -519,8 +577,8 @@ int main(int argc, char **argv) {
 
 	ExpIFace callbacks(debug);
 //	cont.start_logging();
-	DataCollector collector(mode);
-	collector.expose(&cont, cont.getDev(), mode.exposure, "raw/", get_uuid(), &callbacks);
+	Camera camera(cont.getDev(), mode);
+	camera.expose(&cont, mode.exposure, "raw/", get_uuid(), &callbacks);
 //	cont.stop_logging(std::cout);
 //	custom_expose(cont.getDev(), mode.exposure, mode.nrows, mode.ncols, &callbacks);
 
