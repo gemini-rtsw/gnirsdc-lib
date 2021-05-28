@@ -301,6 +301,7 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 //	ExposurePhase status = ExposurePhase::FIRST_READOUT;
 
 	// Setting the bias voltage 
+
 	if (dev->Command( TIM_ID, SBH ) != DON) {
 		throw std::runtime_error("Set bias voltage");
 	}
@@ -318,10 +319,12 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 		throw std::runtime_error("Set analog digital samples failed");
 	}
 
+
+
 std::cerr << "Rows x Cols: " << dRows << " x " << dCols << '\n';
 
 	const unsigned pixelsPerFrame = dRows * dCols;
-	const unsigned totalCount = pixelsPerFrame * (nFrames * 2);
+	/*const*/ unsigned totalCount = pixelsPerFrame * (nFrames * 2);
 	const unsigned pixelsPerTransfer = dCols * rowsPerTransfer; // Copy 4 rows at a time
 	int frameIndex = 0;
 	unsigned pixelCount = 0;
@@ -372,10 +375,24 @@ std::cerr << "Rows x Cols: " << dRows << " x " << dCols << '\n';
 	clock.set_timing_prefix("RESET_");
 	clock.set_timing_index(1);
 
-	while ( pixelsCopied < totalCount ) {
+
+//	totalCount = 1024*1024;
+/*
+	while (1) {
+
+
+		int pixels = dev->GetPixelCount(); 
+		std::cerr << "Pixels Read: " << pixels << " missing: " << 1024*1024 - pixels << " per row: " << (1024*1024 - pixels) / 512 << '\n';
+		sleep(1);
+	}
+*/
+
+	while ( pixelsCopied < totalCount) {
 		if (pixelCount < totalCount) {
 			int pixelRead = dev->GetPixelCount();
 			int diff = pixelRead - latestPixelCount;
+
+//std::cerr << "Pixel Count: " << pixelCount << " Pixel Read: " << pixelRead <<'\n';
 
 			if (diff != 0) {
 				if (waiting_for_signal && (pixelRead > 0)) {
@@ -545,6 +562,9 @@ int main(int argc, char **argv) {
 	bool debug = false;
 	
 	Config mode{"", "./DSP/Aladdin_SDSU_Firmware.lod", 512, 2048, 1, 1, 0.0};
+	//Config mode{"", "./DSP/Aladdin_Unified_test.lod", 512, 2048, 1, 1, 0.0};
+	//Config mode{"", "./DSP/Aladdin_2048_1024XnFS_1DS_3V4.lod", 512, 2048, 1, 1, 0.0};
+//	Config mode{"", "./DSP/Aladdin_12288_1024XnFS_6DS_3V4.lod", 512, 12288, 1, 1, 0.0};
 
 	parse_cmd(argc-1, &argv[1], mode, reset, debug);
 
