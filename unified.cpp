@@ -406,6 +406,7 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 			pixelsCopiedThisFrame += pixelsPerTransfer;
 			pixelsCopied += pixelsPerTransfer;
 
+	 		cont->save_to(basename + std::to_string(frameIndex) + ".fits");
 
 			if (rowsCopiedThisFrame >= dRows) {
 				clock.add_measurement(steady_clock::now());
@@ -511,7 +512,7 @@ void parse_cmd(int argc, char **argv, Config& mode, bool& reset, bool& debug)
 			}
 
 			int na = std::stoi(argv[argi]);
-			if ((na < 1) || (na > MAX_FS)) {
+			if ((na < 1) || (na > MAX_ADCS)) {
 				std::cerr << "Analog Digital Conversions out of range (1.. " << MAX_ADCS << ")\n";
 				exit(1);
 			}
