@@ -313,11 +313,10 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 		throw std::runtime_error("Set number of frames failed");
 	}
 
-/* hawi debug remove for commit
 	if (dev->Command( TIM_ID, SDS, nADCs) != DON) {
 		throw std::runtime_error("Set analog digital samples failed");
 	}
-*/
+
 	const unsigned pixelsPerFrame = dRows * dCols;
 	/*const*/ unsigned totalCount = pixelsPerFrame * (nFrames * 2);
 	const unsigned pixelsPerTransfer = dCols * rowsPerTransfer; // Copy 4 rows at a time
