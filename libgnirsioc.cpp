@@ -15,6 +15,16 @@
 #include "libgnirs.h"
 #include <CExpIFace.h>
 
+#include "libgnirsioc.h"
+
+#define SFS			0x00534653	// Send number of Fowler Samples
+#define SDS			0x00534453	// Send number of Digital Samples
+
+#define SBL			0x0053424C      // Set low bias voltage
+#define SBV			0x00534256      // set normal bias voltage
+#define SBH			0x00534248      // set high bias voltage
+
+
 struct Config {
 	std::string label;
 	std::string lod_file;
@@ -23,6 +33,8 @@ struct Config {
 	unsigned nadcs;
 	unsigned frames;
 	float exposure;
+        char wellDepth;
+	int sequence;
 };
 
 using std::chrono::system_clock;
@@ -31,24 +43,20 @@ using std::chrono::microseconds;
 using std::chrono::seconds;
 using sys_time_point = std::chrono::time_point<system_clock>;
 using sty_time_point = std::chrono::time_point<steady_clock>;
+
 using std::to_string;
 using Pixel = unsigned short;
 
 static constexpr auto READ_TIMEOUT = 200;
 static constexpr int SDSU3_PON_BIT = 0x400000;
 static constexpr int MAX_FS = 64; // Twice the usual max
+static constexpr int MAX_ADCS = 12; // Twice the usual max
+static constexpr int ROWS_PER_FRAME = 512;
+static constexpr int COLS_PER_FRAME = 2048; // Twice the usual max
+
 static constexpr unsigned rowsPerTransfer = 64;
 static constexpr unsigned lagBy = 1;
 
-enum class AdcType {
-	ADC_1 = 1,
-	ADC_6 = 6
-};
-
-std::map<AdcType, Config> setups{
-	{AdcType::ADC_1, {"1 ADC per Fowler Sample", "./DSP/Aladdin_2048_1024XnFS_1DS_3V4.lod", 512, 2048, 1}},
-	{AdcType::ADC_6, {"6 ADC per Fowler Sample", "./DSP/Aladdin_12288_1024XnFS_6DS_3V4.lod", 512, 6 * 2048, 6}},
-};
 
 using namespace arc::device;
 using namespace arc::deinterlace;
@@ -82,13 +90,15 @@ private:
 void print_help()
 {
 	std::cerr << "ARC Detector Testing Program\n\n"
-		  << "   testing [-h] [-d] [-r] [-a #adc] [-s #samples] [-e seconds]\n\n"
-		  << " -h     shows this help page\n"
-		  << " -d     increased debugging output\n"
-		  << " -r     resets the controller as part of the setup\n"
-		  << " -a <#> take <#> ADC samples per Fowler [Default: 1; Valid: 1, 6]\n"
-		  << " -s <#> acquire <#> Fowler samples (both for reset and signal) [Default: 1; Max: 64]\n"
-		  << " -e <s> expose por <s> seconds [Default: 0.0]\n";
+		  << "  gnirsdc [-h] [-d] [-r] [-a #adc] [-f #samples] [-e seconds] [-w <S|M|D>] [-s #sequence]\n\n"
+		  << " -h		shows this help page\n"
+		  << " -d		increased debugging output\n"
+		  << " -r		resets the controller as part of the setup\n"
+		  << " -a <#>		number of times to sample the ADCs [Default: 1]\n"
+		  << " -f <#>		number of Fowler samples (1 Fowler = reset and signal) [Default: 1]\n"
+		  << " -e <s>		expose for <s> seconds [Default: 0.0]\n"
+		  << " -w <S|M|D>	set well depth to shallow (-3.2) medium (-3.4) deep (-3.6) [Default: medium]\n"
+		  << " -s <#>		number of exposures in a sequence [Default: 1]\n";
 }
 
 
@@ -244,7 +254,7 @@ private:
 class Camera {
 public:
 	Camera(CArcDevice *pDevice, const Config &mode);
-	void expose(float expTime, std::string basepath, std::string basename, CExpIFace* exp_iface=nullptr);
+	void expose(Controller* cont, float expTime, std::string basepath, std::string basename, CExpIFace* exp_iface=nullptr);
 private:
 	CArcDevice *dev;
 	unsigned dRows;
@@ -291,7 +301,7 @@ struct Transfer {
 };
 
 void
-Camera::expose(float expTime, std::string basepath, std::string basename, CExpIFace* exp_iface)
+Camera::expose(Controller* cont, float expTime, std::string basepath, std::string basename, CExpIFace* exp_iface)
 {
 	int msec = int( expTime * 1000 );
 //	ExposurePhase status = ExposurePhase::FIRST_READOUT;
@@ -305,10 +315,12 @@ Camera::expose(float expTime, std::string basepath, std::string basename, CExpIF
 		throw std::runtime_error("Set number of frames failed");
 	}
 
-std::cerr << "Rows x Cols: " << dRows << " x " << dCols << '\n';
+	if (dev->Command( TIM_ID, SDS, nADCs) != DON) {
+		throw std::runtime_error("Set analog digital samples failed");
+	}
 
 	const unsigned pixelsPerFrame = dRows * dCols;
-	const unsigned totalCount = pixelsPerFrame * (nFrames * 2);
+	/*const*/ unsigned totalCount = pixelsPerFrame * (nFrames * 2);
 	const unsigned pixelsPerTransfer = dCols * rowsPerTransfer; // Copy 4 rows at a time
 	int frameIndex = 0;
 	unsigned pixelCount = 0;
@@ -359,12 +371,12 @@ std::cerr << "Rows x Cols: " << dRows << " x " << dCols << '\n';
 	clock.set_timing_prefix("RESET_");
 	clock.set_timing_index(1);
 
-	while ( pixelsCopied < totalCount ) {
+
+	while ( pixelsCopied < totalCount) {
 		if (pixelCount < totalCount) {
 			int pixelRead = dev->GetPixelCount();
 			int diff = pixelRead - latestPixelCount;
 
-//std::cerr << "Pixel Count: " << pixelCount << " Pixel Read: " << pixelRead <<'\n';
 
 			if (diff != 0) {
 				if (waiting_for_signal && (pixelRead > 0)) {
@@ -393,6 +405,8 @@ std::cerr << "Rows x Cols: " << dRows << " x " << dCols << '\n';
 			rowsCopiedThisFrame += rowsPerTransfer;
 			pixelsCopiedThisFrame += pixelsPerTransfer;
 			pixelsCopied += pixelsPerTransfer;
+
+//	 		cont->save_to(basename + std::to_string(frameIndex) + ".fits");
 
 			if (rowsCopiedThisFrame >= dRows) {
 				clock.add_measurement(steady_clock::now());
@@ -448,9 +462,6 @@ std::cerr << "Rows x Cols: " << dRows << " x " << dCols << '\n';
 
 void parse_cmd(int argc, char **argv, Config& mode, bool& reset, bool& debug)
 {
-	unsigned samples = 1;
-	AdcType adcs = AdcType::ADC_1;
-	float exp = 0.0;
 
 	for (int argi = 0; argi < argc; ++argi) {
 		std::string current(argv[argi]);
@@ -472,16 +483,17 @@ void parse_cmd(int argc, char **argv, Config& mode, bool& reset, bool& debug)
 				exit(1);
 			}
 
-			exp = std::stof(argv[argi]);
+			float exp = std::stof(argv[argi]);
 			if (exp < 0.0) {
 				std::cerr << "Negative exposure is not allowed\n";
 				exit(1);
 			}
+			mode.exposure = exp;
 		}
-		else if (current == "-s") {
+		else if (current == "-f") {
 			++argi;
 			if (argi >= argc) {
-				std::cerr << "Missing argument for -s\n";
+				std::cerr << "Missing argument for -f\n";
 				exit(1);
 			}
 
@@ -490,7 +502,7 @@ void parse_cmd(int argc, char **argv, Config& mode, bool& reset, bool& debug)
 				std::cerr << "Fowler samples out of range (1 .. " << MAX_FS << ")\n";
 				exit(1);
 			}
-			samples = unsigned(samp);
+			mode.frames = unsigned(samp);
 		}
 		else if (current == "-a") {
 			++argi;
@@ -499,17 +511,46 @@ void parse_cmd(int argc, char **argv, Config& mode, bool& reset, bool& debug)
 				exit(1);
 			}
 
-			int raw_adcs = std::stoi(argv[argi]);
-			switch (raw_adcs) {
-				case 1:
-					adcs = AdcType::ADC_1;
-					break;
-				case 6:
-					adcs = AdcType::ADC_6;
-					break;
-				default:
-					std::cerr << "Illegal ADC number: " << argv[argi] << '\n';
-					exit(1);
+			int na = std::stoi(argv[argi]);
+			if ((na < 1) || (na > MAX_ADCS)) {
+				std::cerr << "Analog Digital Conversions out of range (1.. " << MAX_ADCS << ")\n";
+				exit(1);
+			}
+			mode.nadcs = unsigned(na);
+
+		}
+		else if (current == "-w") {
+                        ++argi;
+
+			if (argi >= argc) {
+				std::cerr << "Missing argument for -w\n";
+				exit(1);
+			}
+
+			mode.wellDepth = argv[argi][0];
+
+
+			std::cout << "WellDepth: " << mode.wellDepth << " value: " << 'S' << '\n';
+			
+			if (mode.wellDepth != 'S' &&
+			    mode.wellDepth != 'M' && 
+			    mode.wellDepth != 'D') {
+
+  			   std::cerr << "Bad well depth argument " << argv[argi] << '\n';
+			   exit(1);
+    			}
+		}
+		else if (current == "-s") {
+			++argi;
+			if (argi >= argc) {
+				std::cerr << "Missing argument for -s\n";
+				exit(1);
+			}
+
+			mode.sequence = std::stoi(argv[argi]);
+			if (mode.sequence < 1) {
+				std::cerr << "Number in sequence must be positive\n";
+				exit(1);
 			}
 		}
 		else {
@@ -518,14 +559,8 @@ void parse_cmd(int argc, char **argv, Config& mode, bool& reset, bool& debug)
 		}
 	}
 
-	if (setups.count(adcs) == 0) {
-		std::cerr << "Something went wrong: no mode found for the configured ADCs\n";
-		exit(1);
-	}
-
-	mode = setups.at(adcs);
-	mode.exposure = exp;
-	mode.frames = samples;
+	mode.nrows = ROWS_PER_FRAME;
+        mode.ncols = COLS_PER_FRAME * mode.nadcs; 
 }
 
 std::string get_uuid() {
@@ -538,19 +573,17 @@ std::string get_uuid() {
 	return std::string(uuid_string);
 }
 
-int main(int argc, char **argv) {
+
+int dcInit(int argc, char **argv) {
+
 	bool reset = false;
 	bool debug = false;
-	Config mode{"", "", 0, 0, 0, 0, 0.0};
+	
+	Config mode{"", "/usr/local/bin/DSP/Aladdin_SDSU_Firmware.lod", 512, 2048, 1, 1, 0.0, 'M', 1};
 
 	parse_cmd(argc-1, &argv[1], mode, reset, debug);
 
 	Controller cont(mode.nrows, mode.ncols);
-
-	if (debug) {
-		std::cout << "Testing for mode: " << mode.label << '\n';
-	}
-	std::cout << "Exposing for " << mode.exposure << " seconds\n";
 
 	cont.connect_device();
 
@@ -568,14 +601,64 @@ int main(int argc, char **argv) {
 	cont.setup_controller(mode.lod_file, true, reset); // Power on
 	if (!reset)
 		cont.set_size(mode.nrows, mode.ncols);
-	// cont.set_synthetic(false);
+
+	// Setting the bias voltage 
+        switch (mode.wellDepth) {
+		case 'S':
+      	      		std::cout << "Well Depth set to -3.2 \n";
+			if (cont.getDev()->Command( TIM_ID, SBL ) != DON) {
+				throw std::runtime_error("Set bias voltage");
+			}
+		break;
+		case 'M':
+      	      		std::cout << "Well Depth set to -3.4 \n";
+			if (cont.getDev()->Command( TIM_ID, SBV ) != DON) {
+				throw std::runtime_error("Set bias voltage");
+			}
+		break;
+		case 'D':
+      	      		std::cout << "Well Depth set to -3.6 \n";
+			if (cont.getDev()->Command( TIM_ID, SBH ) != DON) {
+				throw std::runtime_error("Set bias voltage");
+			}
+		break;
+	}
+
+	return 0;
+}
+
+
+
+int dcExpose(int argc, char **argv) {
+	bool reset = false;
+	bool debug = false;
+	
+	Config mode{"", "/usr/local/bin/DSP/Aladdin_SDSU_Firmware.lod", 512, 2048, 1, 1, 0.0, 'M', 1};
+
+	parse_cmd(argc-1, &argv[1], mode, reset, debug);
+
+	Controller cont(mode.nrows, mode.ncols);
+
+	if (debug) {
+		std::cout << "Testing for mode: " << mode.label << '\n';
+	}
+	std::cout << "Exposing for " << mode.exposure << " seconds\n";
+
 	if (debug)
 		std::cout << "Exposing\n";
 
 	ExpIFace callbacks(debug);
+
 //	cont.start_logging();
+//
 	Camera camera(cont.getDev(), mode);
-	camera.expose(mode.exposure, "raw/", get_uuid(), &callbacks);
+
+        std::cout << "Sequence " << mode.sequence << std::endl;
+
+        for (int i=0; i < mode.sequence; i++) {
+		camera.expose(&cont, mode.exposure, "/home/readout_data/new/", get_uuid(), &callbacks);
+	}
+
 //	cont.stop_logging(std::cout);
 //	custom_expose(cont.getDev(), mode.exposure, mode.nrows, mode.ncols, &callbacks);
 

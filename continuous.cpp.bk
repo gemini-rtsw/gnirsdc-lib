@@ -46,7 +46,8 @@ enum class AdcType {
 };
 
 std::map<AdcType, Config> setups{
-	{AdcType::ADC_1, {"1 ADC per Fowler Sample", "./DSP/Aladdin_2048_1024XnFS_1DS_3V4.lod", 512, 2048, 1}},
+	//{AdcType::ADC_1, {"1 ADC per Fowler Sample", "./DSP/Aladdin_2048_1024XnFS_1DS_3V4.lod", 512, 2048, 1}},
+	{AdcType::ADC_1, {"1 ADC per Fowler Sample", "./DSP/Aladdin_SDSU_Firmware.lod", 512, 2048, 1}},
 	{AdcType::ADC_6, {"6 ADC per Fowler Sample", "./DSP/Aladdin_12288_1024XnFS_6DS_3V4.lod", 512, 6 * 2048, 6}},
 };
 
@@ -207,6 +208,11 @@ void json_set_datalabel(json_object *job, std::string prefix, unsigned nFrames, 
 
 class DataCollector {
 public:
+<<<<<<< HEAD
+	DataCollector(const Config &mode);
+	void expose(Controller* cont, CArcDevice* dev, float expTime, std::string basepath, std::string basename, CExpIFace* exp_iface=nullptr);
+	void data_save(std::string path, std::string prefix, unsigned buffNo, json_object *sample_array);
+=======
 	DataCollector(Pixel *origin, size_t totalPixels, const std::string &basePath, const std::string &baseFileName, int buffNo);
 	std::string getFileName() const { return fileName; };
 	bool full() const { return currentOffset >= buffSize; }
@@ -227,6 +233,7 @@ public:
 
 		currentOffset += count;
 	}
+>>>>>>> 0a722b6816ad1e4564454c15f047b4534671aea7
 
 	virtual ~DataCollector();
 
@@ -291,7 +298,11 @@ struct Transfer {
 };
 
 void
+<<<<<<< HEAD
+DataCollector::expose(Controller* cont, CArcDevice* dev, float expTime, std::string basepath, std::string basename, CExpIFace* exp_iface)
+=======
 Camera::expose(float expTime, std::string basepath, std::string basename, CExpIFace* exp_iface)
+>>>>>>> 0a722b6816ad1e4564454c15f047b4534671aea7
 {
 	int msec = int( expTime * 1000 );
 //	ExposurePhase status = ExposurePhase::FIRST_READOUT;
@@ -304,8 +315,6 @@ Camera::expose(float expTime, std::string basepath, std::string basename, CExpIF
 	if (dev->Command( TIM_ID, SFS, nFrames) != DON) {
 		throw std::runtime_error("Set number of frames failed");
 	}
-
-std::cerr << "Rows x Cols: " << dRows << " x " << dCols << '\n';
 
 	const unsigned pixelsPerFrame = dRows * dCols;
 	const unsigned totalCount = pixelsPerFrame * (nFrames * 2);
@@ -364,8 +373,6 @@ std::cerr << "Rows x Cols: " << dRows << " x " << dCols << '\n';
 			int pixelRead = dev->GetPixelCount();
 			int diff = pixelRead - latestPixelCount;
 
-//std::cerr << "Pixel Count: " << pixelCount << " Pixel Read: " << pixelRead <<'\n';
-
 			if (diff != 0) {
 				if (waiting_for_signal && (pixelRead > 0)) {
 					clock.add_measurement(steady_clock::now());
@@ -380,6 +387,10 @@ std::cerr << "Rows x Cols: " << dRows << " x " << dCols << '\n';
 		}
 
 		if ((pixelCount - pixelsCopied) >= pixelsPerTransfer) {
+<<<<<<< HEAD
+
+			copy_raw(dev, currentBuffer, pixelsCopiedThisFrame, pixelsPerTransfer);
+=======
 			transfers.push({currentCollector, pixelsPerTransfer});
 			if (transfers.size() > lagBy) {
 				Transfer t(transfers.front());
@@ -389,6 +400,7 @@ std::cerr << "Rows x Cols: " << dRows << " x " << dCols << '\n';
 					threads.push_back(new std::thread(&DataCollector::data_save, t.collector));
 				}
 			}
+>>>>>>> 0a722b6816ad1e4564454c15f047b4534671aea7
 
 			rowsCopiedThisFrame += rowsPerTransfer;
 			pixelsCopiedThisFrame += pixelsPerTransfer;
@@ -396,6 +408,12 @@ std::cerr << "Rows x Cols: " << dRows << " x " << dCols << '\n';
 
 			if (rowsCopiedThisFrame >= dRows) {
 				clock.add_measurement(steady_clock::now());
+<<<<<<< HEAD
+				threads[bufferIndex] = new std::thread(&DataCollector::data_save, this, basepath, basename, bufferIndex, samples);
+				
+				cont->save_to(basename + std::to_string(bufferIndex) + ".fits");
+=======
+>>>>>>> 0a722b6816ad1e4564454c15f047b4534671aea7
 
 				if (reading_reset && (clock.timing_index() > nFrames)) {
 					reading_reset = false;
@@ -574,12 +592,17 @@ int main(int argc, char **argv) {
 
 	ExpIFace callbacks(debug);
 //	cont.start_logging();
+<<<<<<< HEAD
+	DataCollector collector(mode);
+	collector.expose(&cont, cont.getDev(), mode.exposure, "raw/", get_uuid(), &callbacks);
+=======
 	Camera camera(cont.getDev(), mode);
 	camera.expose(mode.exposure, "raw/", get_uuid(), &callbacks);
+>>>>>>> 0a722b6816ad1e4564454c15f047b4534671aea7
 //	cont.stop_logging(std::cout);
 //	custom_expose(cont.getDev(), mode.exposure, mode.nrows, mode.ncols, &callbacks);
 
-//	cont.save_to("test_file2.fits");
+	cont.save_to("test_file2.fits");
 
 	return 0;
 }

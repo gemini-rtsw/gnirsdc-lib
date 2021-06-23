@@ -31,6 +31,8 @@ struct Config {
 	unsigned nadcs;
 	unsigned frames;
 	float exposure;
+        char wellDepth;
+	int sequence;
 };
 
 using std::chrono::system_clock;
@@ -86,13 +88,15 @@ private:
 void print_help()
 {
 	std::cerr << "ARC Detector Testing Program\n\n"
-		  << "   testing [-h] [-d] [-r] [-a #adc] [-s #samples] [-e seconds]\n\n"
-		  << " -h     shows this help page\n"
-		  << " -d     increased debugging output\n"
-		  << " -r     resets the controller as part of the setup\n"
-		  << " -a <#> take <#> ADC samples per Fowler [Default: 1; Valid: 1, 6]\n"
-		  << " -s <#> acquire <#> Fowler samples (both for reset and signal) [Default: 1; Max: 64]\n"
-		  << " -e <s> expose por <s> seconds [Default: 0.0]\n";
+		  << "  gnirsdc [-h] [-d] [-r] [-a #adc] [-f #samples] [-e seconds] [-w <S|M|D>] [-s #sequence]\n\n"
+		  << " -h		shows this help page\n"
+		  << " -d		increased debugging output\n"
+		  << " -r		resets the controller as part of the setup\n"
+		  << " -a <#>		number of times to sample the ADCs [Default: 1]\n"
+		  << " -f <#>		number of Fowler samples (1 Fowler = reset and signal) [Default: 1]\n"
+		  << " -e <s>		expose for <s> seconds [Default: 0.0]\n"
+		  << " -w <S|M|D>	set well depth to shallow (-3.2) medium (-3.4) deep (-3.6) [Default: medium]\n"
+		  << " -s <#>		number of exposures in a sequence [Default: 1]\n";
 }
 
 
@@ -300,12 +304,6 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 	int msec = int( expTime * 1000 );
 //	ExposurePhase status = ExposurePhase::FIRST_READOUT;
 
-	// Setting the bias voltage 
-
-	if (dev->Command( TIM_ID, SBH ) != DON) {
-		throw std::runtime_error("Set bias voltage");
-	}
-
 	// Setting the exposure time
 	if (dev->Command( TIM_ID, SET, msec ) != DON) {
 		throw std::runtime_error("Set exposure time failed");
@@ -315,10 +313,11 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 		throw std::runtime_error("Set number of frames failed");
 	}
 
+/* hawi debug remove for commit
 	if (dev->Command( TIM_ID, SDS, nADCs) != DON) {
 		throw std::runtime_error("Set analog digital samples failed");
 	}
-
+*/
 	const unsigned pixelsPerFrame = dRows * dCols;
 	/*const*/ unsigned totalCount = pixelsPerFrame * (nFrames * 2);
 	const unsigned pixelsPerTransfer = dCols * rowsPerTransfer; // Copy 4 rows at a time
@@ -490,10 +489,10 @@ void parse_cmd(int argc, char **argv, Config& mode, bool& reset, bool& debug)
 			}
 			mode.exposure = exp;
 		}
-		else if (current == "-s") {
+		else if (current == "-f") {
 			++argi;
 			if (argi >= argc) {
-				std::cerr << "Missing argument for -s\n";
+				std::cerr << "Missing argument for -f\n";
 				exit(1);
 			}
 
@@ -519,6 +518,40 @@ void parse_cmd(int argc, char **argv, Config& mode, bool& reset, bool& debug)
 			mode.nadcs = unsigned(na);
 
 		}
+		else if (current == "-w") {
+                        ++argi;
+
+			if (argi >= argc) {
+				std::cerr << "Missing argument for -w\n";
+				exit(1);
+			}
+
+			mode.wellDepth = argv[argi][0];
+
+
+			std::cout << "WellDepth: " << mode.wellDepth << " value: " << 'S' << '\n';
+			
+			if (mode.wellDepth != 'S' &&
+			    mode.wellDepth != 'M' && 
+			    mode.wellDepth != 'D') {
+
+  			   std::cerr << "Bad well depth argument " << argv[argi] << '\n';
+			   exit(1);
+    			}
+		}
+		else if (current == "-s") {
+			++argi;
+			if (argi >= argc) {
+				std::cerr << "Missing argument for -s\n";
+				exit(1);
+			}
+
+			mode.sequence = std::stoi(argv[argi]);
+			if (mode.sequence < 1) {
+				std::cerr << "Number in sequence must be positive\n";
+				exit(1);
+			}
+		}
 		else {
 			std::cerr << "Unknown argument " << argv[argi] << '\n';
 			exit(1);
@@ -543,7 +576,10 @@ int main(int argc, char **argv) {
 	bool reset = false;
 	bool debug = false;
 	
-	Config mode{"", "./DSP/Aladdin_SDSU_Firmware.lod", 512, 2048, 1, 1, 0.0};
+	//Config mode{"", "/usr/local/bin/DSP/Aladdin_SDSU_Firmware.lod", 512, 2048, 1, 1, 0.0, 'M', 1};
+	Config mode{"", "./DSP/Aladdin_SDSU_Firmware.lod", 512, 2048, 1, 1, 0.0, 'M', 1};
+	//Config mode{"", "./DSP/VeryBrightFullFrame.lod", 512, 2048, 1, 1, 0.0, 'M', 1};
+//	Config mode{"", "./DSP/tim.lod", 512, 2048, 1, 1, 0.0, 'M', 1};
 
 	parse_cmd(argc-1, &argv[1], mode, reset, debug);
 
@@ -570,14 +606,40 @@ int main(int argc, char **argv) {
 	cont.setup_controller(mode.lod_file, true, reset); // Power on
 	if (!reset)
 		cont.set_size(mode.nrows, mode.ncols);
-	// cont.set_synthetic(false);
+
+	// Setting the bias voltage 
+        switch (mode.wellDepth) {
+		case 'S':
+      	      		std::cout << "Well Depth set to -3.2 \n";
+			if (cont.getDev()->Command( TIM_ID, SBL ) != DON) {
+				throw std::runtime_error("Set bias voltage");
+			}
+		break;
+		case 'M':
+      	      		std::cout << "Well Depth set to -3.4 \n";
+			if (cont.getDev()->Command( TIM_ID, SBV ) != DON) {
+				throw std::runtime_error("Set bias voltage");
+			}
+		break;
+		case 'D':
+      	      		std::cout << "Well Depth set to -3.6 \n";
+			if (cont.getDev()->Command( TIM_ID, SBH ) != DON) {
+				throw std::runtime_error("Set bias voltage");
+			}
+		break;
+	}
+
 	if (debug)
 		std::cout << "Exposing\n";
 
 	ExpIFace callbacks(debug);
 //	cont.start_logging();
 	Camera camera(cont.getDev(), mode);
-	camera.expose(&cont, mode.exposure, "raw/", get_uuid(), &callbacks);
+        std::cout << "Sequence " << mode.sequence << std::endl;
+        for (int i=0; i < mode.sequence; i++) {
+		camera.expose(&cont, mode.exposure, "/home/readout_data/new/", get_uuid(), &callbacks);
+	}
+
 //	cont.stop_logging(std::cout);
 //	custom_expose(cont.getDev(), mode.exposure, mode.nrows, mode.ncols, &callbacks);
 
