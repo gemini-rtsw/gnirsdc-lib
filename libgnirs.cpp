@@ -14,6 +14,8 @@ Controller::Controller(int rows, int cols)
 	  confCols(cols),
 	  dataSize(2)
 {
+std::cerr << "Rows Cols :" << maxRows << ", " << maxCols << "addr: " << this << std::endl;
+
 }
 
 Controller::~Controller()
@@ -128,6 +130,8 @@ Controller::setup_controller(std::string path, bool power_on, bool reset)
 {
 	// TODO: Test the file path
 	try {
+std::cerr << "Rows Cols :" << maxRows << ", " << maxCols << "addr: " << this << std::endl;
+
 		pArcDev->SetupController( reset,      // Reset the controller
 					  true,      // Test the data link
 					  power_on,  // Power on the controller or not

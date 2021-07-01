@@ -1,3 +1,4 @@
+
 #include <iostream>
 #include <map>
 #include <string>
@@ -24,7 +25,7 @@
 #define SBV			0x00534256      // set normal bias voltage
 #define SBH			0x00534248      // set high bias voltage
 
-
+/*
 struct Config {
 	std::string label;
 	std::string lod_file;
@@ -36,6 +37,9 @@ struct Config {
         char wellDepth;
 	int sequence;
 };
+*/
+
+Controller *gCont;
 
 using std::chrono::system_clock;
 using std::chrono::steady_clock;
@@ -574,70 +578,101 @@ std::string get_uuid() {
 }
 
 
-int dcInit(int argc, char **argv) {
+controllerInterface::controllerInterface()  {
 
-	bool reset = false;
-	bool debug = false;
-	
-	Config mode{"", "/usr/local/bin/DSP/Aladdin_SDSU_Firmware.lod", 512, 2048, 1, 1, 0.0, 'M', 1};
+ 	gCont = new Controller(512, 12288);
 
-	parse_cmd(argc-1, &argv[1], mode, reset, debug);
+	reset = false;
+	debug = false;
 
-	Controller cont(mode.nrows, mode.ncols);
-
-	cont.connect_device();
+	std::cout << "size: " << mode.nrows << " " << mode.ncols << std::endl;
+	gCont->connect_device();
 
 	std::cout << "List of devices:\n";
-	for (auto st: cont.device_list()) {
+	for (auto st: gCont->device_list()) {
 		std::cout << "  " << st << '\n';
 	}
 
-	std::cout << "TDL testing: " << cont.tdl_testing(123) << '\n';
+	std::cout << "TDL testing: " << gCont->tdl_testing(123) << '\n';
+
+	this->init();
+
+}
+
+controllerInterface::~controllerInterface() {
+	delete gCont;
+}	
+
+int controllerInterface::init() {
+
 	std::cout << "Performing reset\n";
-	cont.getDev()->Reset();
+	gCont->getDev()->Reset();
 
 	if (debug)
 		std::cout << "Setting up with file" << mode.lod_file << '\n';
-	cont.setup_controller(mode.lod_file, true, reset); // Power on
-	if (!reset)
-		cont.set_size(mode.nrows, mode.ncols);
 
-	// Setting the bias voltage 
-        switch (mode.wellDepth) {
-		case 'S':
-      	      		std::cout << "Well Depth set to -3.2 \n";
-			if (cont.getDev()->Command( TIM_ID, SBL ) != DON) {
-				throw std::runtime_error("Set bias voltage");
-			}
-		break;
-		case 'M':
-      	      		std::cout << "Well Depth set to -3.4 \n";
-			if (cont.getDev()->Command( TIM_ID, SBV ) != DON) {
-				throw std::runtime_error("Set bias voltage");
-			}
-		break;
-		case 'D':
-      	      		std::cout << "Well Depth set to -3.6 \n";
-			if (cont.getDev()->Command( TIM_ID, SBH ) != DON) {
-				throw std::runtime_error("Set bias voltage");
-			}
-		break;
+	gCont->setup_controller(mode.lod_file, true, reset); // Power on
+
+	if (!reset)
+		gCont->set_size(mode.nrows, mode.ncols);
+
+	return 0;
+}
+
+int controllerInterface::biasLow() {
+
+	std::cout << "Well Depth set to -3.2 \n";
+	if (gCont->getDev()->Command( TIM_ID, SBL ) != DON) {
+		throw std::runtime_error("Set bias voltage");
 	}
 
 	return 0;
 }
 
+int controllerInterface::biasMed() {
+
+	std::cout << "Well Depth set to -3.4 \n";
+	if (gCont->getDev()->Command( TIM_ID, SBV ) != DON) {
+		throw std::runtime_error("Set bias voltage");
+	}
+
+	return 0;
+}
+
+int controllerInterface::biasHigh() {
+
+	std::cout << "Well Depth set to -3.6 \n";
+	if (gCont->getDev()->Command( TIM_ID, SBH ) != DON) {
+		throw std::runtime_error("Set bias voltage");
+	}
+
+	return 0;
+}
+
+int controllerInterface::setExposure(double fowlerSamples, double adcSamples, double exposureTime) {
+
+	if (fowlerSamples < 1) fowlerSamples = 1;
+	if (adcSamples < 1) adcSamples = 1;
+	if (exposureTime < 0) exposureTime = 0;
 
 
-int dcExpose(int argc, char **argv) {
-	bool reset = false;
-	bool debug = false;
-	
-	Config mode{"", "/usr/local/bin/DSP/Aladdin_SDSU_Firmware.lod", 512, 2048, 1, 1, 0.0, 'M', 1};
+	mode.frames = fowlerSamples;
+	mode.nadcs = adcSamples;
+	mode.exposure = exposureTime;
+	mode.nrows = ROWS_PER_FRAME;
+        mode.ncols = COLS_PER_FRAME * mode.nadcs; 
 
-	parse_cmd(argc-1, &argv[1], mode, reset, debug);
+	std::cout << "Fowler samples: " << mode.frames << " ADCs: " << mode.nadcs << " Exposure time: " << mode.exposure << std::endl;
 
-	Controller cont(mode.nrows, mode.ncols);
+	return 0;
+}
+
+int controllerInterface::expose() {
+
+
+
+	gCont->set_size(mode.nrows, mode.ncols);
+
 
 	if (debug) {
 		std::cout << "Testing for mode: " << mode.label << '\n';
@@ -651,12 +686,12 @@ int dcExpose(int argc, char **argv) {
 
 //	cont.start_logging();
 //
-	Camera camera(cont.getDev(), mode);
+	Camera camera(gCont->getDev(), mode);
 
         std::cout << "Sequence " << mode.sequence << std::endl;
 
         for (int i=0; i < mode.sequence; i++) {
-		camera.expose(&cont, mode.exposure, "/home/readout_data/new/", get_uuid(), &callbacks);
+		camera.expose(gCont, mode.exposure, "/home/readout_data/new/", get_uuid(), &callbacks);
 	}
 
 //	cont.stop_logging(std::cout);
