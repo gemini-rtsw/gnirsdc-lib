@@ -585,7 +585,6 @@ controllerInterface::controllerInterface()  {
 	reset = false;
 	debug = false;
 
-	std::cout << "size: " << mode.nrows << " " << mode.ncols << std::endl;
 	gCont->connect_device();
 
 	std::cout << "List of devices:\n";
@@ -594,8 +593,6 @@ controllerInterface::controllerInterface()  {
 	}
 
 	std::cout << "TDL testing: " << gCont->tdl_testing(123) << '\n';
-
-	this->init();
 
 }
 
@@ -613,8 +610,7 @@ int controllerInterface::init() {
 
 	gCont->setup_controller(mode.lod_file, true, reset); // Power on
 
-	if (!reset)
-		gCont->set_size(mode.nrows, mode.ncols);
+	biasMed();
 
 	return 0;
 }
@@ -668,7 +664,6 @@ int controllerInterface::setExposure(double fowlerSamples, double adcSamples, do
 }
 
 int controllerInterface::expose() {
-
 
 
 	gCont->set_size(mode.nrows, mode.ncols);
