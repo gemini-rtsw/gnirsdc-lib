@@ -39,6 +39,7 @@ struct Config {
 };
 */
 
+
 Controller *gCont;
 
 using std::chrono::system_clock;
@@ -61,6 +62,7 @@ static constexpr int COLS_PER_FRAME = 2048; // Twice the usual max
 static constexpr unsigned rowsPerTransfer = 64;
 static constexpr unsigned lagBy = 1;
 
+bool gIsAladdinIII = false;
 
 using namespace arc::device;
 using namespace arc::deinterlace;
@@ -242,6 +244,22 @@ public:
 		currentOffset += count;
 	}
 
+        inline void copyRow513(size_t cols)
+        {
+
+		if (gIsAladdinIII) {
+			std::cout << "Aladdin III copying extra row 513\n";
+
+			Pixel *buffNow = &buffer[currentOffset - cols]; //row 512 in new buffer
+
+
+			for (unsigned int i=2; i < cols; i+=2) {
+				std::memcpy(buffNow +  i, &origBuffer[currentOffset + i], 2 * sizeof(Pixel)); //row 513 in PCI device buffer
+			}
+		}
+
+        }
+
 	virtual ~DataCollector();
 
 private:
@@ -258,7 +276,7 @@ private:
 class Camera {
 public:
 	Camera(CArcDevice *pDevice, const Config &mode);
-	void expose(Controller* cont, float expTime, std::string basepath, std::string basename, CExpIFace* exp_iface=nullptr);
+	void expose(Controller* cont, float expTime, std::string basepath, std::string basename, CExpIFace* exp_iface, std::function<void (json_object*)>);
 private:
 	CArcDevice *dev;
 	unsigned dRows;
@@ -305,7 +323,7 @@ struct Transfer {
 };
 
 void
-Camera::expose(Controller* cont, float expTime, std::string basepath, std::string basename, CExpIFace* exp_iface)
+Camera::expose(Controller* cont, float expTime, std::string basepath, std::string basename, CExpIFace* exp_iface, std::function<void(json_object* obj)> processHeader)
 {
 	int msec = int( expTime * 1000 );
 //	ExposurePhase status = ExposurePhase::FIRST_READOUT;
@@ -339,10 +357,12 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 	json_object *pdu = json_object_new_object();
 	json_object *samples = json_object_new_array();
 	json_object *timing = json_object_new_object();
+	json_object *temperature = json_object_new_object();
 
 	json_object_object_add(json_output, "PDU", pdu);
 	json_object_object_add(json_output, "FRAMES", samples);
 	json_object_object_add(json_output, "TIME_SAMPLES", timing);
+	json_object_object_add(json_output, "TEMPERATURE", temperature);
 
 	json_object_object_add(pdu, "CAMERA", json_object_new_string("GNIRS"));
 	json_set_datalabel(pdu, "test-image", nFrames, nADCs);
@@ -402,6 +422,7 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 				transfers.pop();
 				t.collector->update(t.count);
 				if (t.collector->full()) {
+					t.collector->copyRow513(dCols);
 					threads.push_back(new std::thread(&DataCollector::data_save, t.collector));
 				}
 			}
@@ -437,6 +458,7 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 		transfers.pop();
 		t.collector->update(t.count);
 		if (t.collector->full()) {
+			t.collector->copyRow513(dCols);
 			threads.push_back(new std::thread(&DataCollector::data_save, t.collector));
 		}
 	}
@@ -455,6 +477,11 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 	auto add_measurements = [timing](std::string label, double diff) { json_object_object_add(timing, label.c_str(), json_object_new_double(diff)); };
 
 	clock.visit_measurements(add_measurements);
+
+
+
+	processHeader(temperature);
+
 
 	std::ostringstream oss;
 	oss << basepath + basename << ".header";
@@ -598,6 +625,19 @@ controllerInterface::controllerInterface()  {
 
 controllerInterface::~controllerInterface() {
 	delete gCont;
+}
+
+void controllerInterface::setAladdinIII(bool isAladdinIII) {
+	if (isAladdinIII) {
+		printf("Firmware set to Aladdin III\n");
+		mode.lod_file = aladdinIIIFilename;
+		gIsAladdinIII = true;
+	}
+	else {
+		mode.lod_file = aladdinIIFilename;
+		printf("Firmware set to Aladdin II\n");
+		gIsAladdinIII = false;
+	}
 }	
 
 int controllerInterface::init() {
@@ -605,8 +645,7 @@ int controllerInterface::init() {
 	std::cout << "Performing reset\n";
 	gCont->getDev()->Reset();
 
-	if (debug)
-		std::cout << "Setting up with file" << mode.lod_file << '\n';
+	std::cout << "Setting up with file" << mode.lod_file << '\n';
 
 	gCont->setup_controller(mode.lod_file, true, reset); // Power on
 
@@ -663,7 +702,7 @@ int controllerInterface::setExposure(double fowlerSamples, double adcSamples, do
 	return 0;
 }
 
-int controllerInterface::expose() {
+int controllerInterface::expose(double temp1, double temp2) {
 
 
 	gCont->set_size(mode.nrows, mode.ncols);
@@ -685,8 +724,14 @@ int controllerInterface::expose() {
 
         std::cout << "Sequence " << mode.sequence << std::endl;
 
+	auto processHeader = [temp1, temp2](json_object* temp){
+                        json_object_object_add(temp, "TEMP IN1", json_object_new_double(temp1));
+                        json_object_object_add(temp, "TEMP IN2", json_object_new_double(temp2));
+                };
+
+
         for (int i=0; i < mode.sequence; i++) {
-		camera.expose(gCont, mode.exposure, "/home/readout_data/new/", get_uuid(), &callbacks);
+		camera.expose(gCont, mode.exposure, "/home/readout_data/new/", get_uuid(), &callbacks, processHeader);
 	}
 
 //	cont.stop_logging(std::cout);

@@ -25,12 +25,15 @@ public:
 	int biasMed();
 	int biasHigh();
 	int setExposure(double fowlserSamples, double adcSamples, double exposureTime);
-	int expose();
+	int expose(double temp1, double temp2);
+	void setAladdinIII(bool isAladdinIII);
+	
 
-
-	Config mode{"", "/gem_test/gnirsdc/lib/DSP/Aladdin_SDSU_Firmware.lod", 512, 2048, 1, 1, 0.0, 'M', 1};
+	Config mode{"", "/gem_test/gnirsdc/lib/DSP/AladdinII_SDSU_Firmware.lod", 512, 2048, 1, 1, 0.0, 'M', 1};
 
 private:
+	std::string aladdinIIFilename{"/gem_test/gnirsdc/lib/DSP/AladdinII_SDSU_Firmware.lod"};
+	std::string aladdinIIIFilename{"/gem_test/gnirsdc/lib/DSP/AladdinIII_SDSU_Firmware.lod"};
 	bool reset;
 	bool debug;
 };

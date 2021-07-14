@@ -236,6 +236,18 @@ public:
 		currentOffset += count;
 	}
 
+	inline void copyRow513(size_t cols)
+	{
+		Pixel *buffNow = &buffer[currentOffset - cols]; //row 512 in new buffer
+
+std::cout << "Buff size: " << buffSize << " current offset: " << currentOffset << " count: " << cols << std::endl;
+
+		for (unsigned int i=2; i < cols; i+=2) {
+			std::memcpy(buffNow +  i, &origBuffer[currentOffset + i], 2 * sizeof(Pixel)); //row 513 in PCI device buffer
+		}
+
+	}
+
 	virtual ~DataCollector();
 
 private:
@@ -375,7 +387,6 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 			int pixelRead = dev->GetPixelCount();
 			int diff = pixelRead - latestPixelCount;
 
-
 			if (diff != 0) {
 				if (waiting_for_signal && (pixelRead > 0)) {
 					clock.add_measurement(steady_clock::now());
@@ -396,6 +407,7 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 				transfers.pop();
 				t.collector->update(t.count);
 				if (t.collector->full()) {
+					t.collector->copyRow513(dCols);
 					threads.push_back(new std::thread(&DataCollector::data_save, t.collector));
 				}
 			}
@@ -431,6 +443,7 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 		transfers.pop();
 		t.collector->update(t.count);
 		if (t.collector->full()) {
+			t.collector->copyRow513(dCols);
 			threads.push_back(new std::thread(&DataCollector::data_save, t.collector));
 		}
 	}
