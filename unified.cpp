@@ -238,12 +238,20 @@ public:
 
 	inline void copyRow513(size_t cols)
 	{
+
+
 		Pixel *buffNow = &buffer[currentOffset - cols]; //row 512 in new buffer
 
 std::cout << "Buff size: " << buffSize << " current offset: " << currentOffset << " count: " << cols << std::endl;
 
-		for (unsigned int i=2; i < cols; i+=2) {
-			std::memcpy(buffNow +  i, &origBuffer[currentOffset + i], 2 * sizeof(Pixel)); //row 513 in PCI device buffer
+unsigned short memtest[16] = {sizeof(memtest), 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
+
+		for (unsigned int i=0; i < cols; i+=32) {
+
+			std::memcpy(&buffNow[i+16], &origBuffer[currentOffset + i], 16 * sizeof(Pixel)); //row 513 in PCI device buffer
+													 // copy from quad 1 & 2 to 3 & 4
+
+//			std::memcpy(&buffNow[i], &memtest, sizeof(memtest)); //row 513 in PCI device buffer
 		}
 
 	}
@@ -382,9 +390,12 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 	clock.set_timing_index(1);
 
 
+std::cout << "Total Count: " << totalCount << std::endl;
+
 	while ( pixelsCopied < totalCount) {
 		if (pixelCount < totalCount) {
 			int pixelRead = dev->GetPixelCount();
+//std::cout << "Pixels Read: " << pixelRead << std::endl;
 			int diff = pixelRead - latestPixelCount;
 
 			if (diff != 0) {
@@ -396,6 +407,9 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 					diff = (pixelsPerFrame - latestPixelCount) + pixelRead;
 				}
 				pixelCount += diff;
+				
+//std::cout << "Pixels Count: " << pixelCount << std::endl;
+
 				latestPixelCount = pixelRead;
 			}
 		}
@@ -416,7 +430,6 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 			pixelsCopiedThisFrame += pixelsPerTransfer;
 			pixelsCopied += pixelsPerTransfer;
 
-	 		cont->save_to(basename + std::to_string(frameIndex) + ".fits");
 
 			if (rowsCopiedThisFrame >= dRows) {
 				clock.add_measurement(steady_clock::now());
@@ -427,6 +440,9 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 					clock.set_timing_prefix("SIGNAL_");
 					clock.set_timing_index(0);
 				}
+
+std::cout << "***Total pixels read this frame: " << dev->GetPixelCount() << std::endl;
+	 		cont->save_to(basename + std::to_string(frameIndex) + ".fits");
 
 				frameIndex++;
 				currentCollector = collectors[frameIndex];
@@ -443,10 +459,15 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 		transfers.pop();
 		t.collector->update(t.count);
 		if (t.collector->full()) {
+std::cout << "***Total pixels read this frame: " << dev->GetPixelCount() << std::endl;
 			t.collector->copyRow513(dCols);
 			threads.push_back(new std::thread(&DataCollector::data_save, t.collector));
 		}
 	}
+
+std::cout << "***Total pixels read this frame: " << dev->GetPixelCount() << std::endl;
+std::cout << "***Total pixels read: " << pixelsCopied << std::endl;
+
 
 	dev->StopExposure();
 	std::cerr << "Total loops = " << loops << '\n';
@@ -589,7 +610,7 @@ int main(int argc, char **argv) {
 	bool debug = false;
 	
 	//Config mode{"", "/usr/local/bin/DSP/Aladdin_SDSU_Firmware.lod", 512, 2048, 1, 1, 0.0, 'M', 1};
-	Config mode{"", "./DSP/Aladdin_SDSU_Firmware.lod", 512, 2048, 1, 1, 0.0, 'M', 1};
+	Config mode{"", "./DSP/AladdinIII_SDSU_Firmware.lod", ROWS_PER_FRAME, 2048, 1, 1, 0.0, 'M', 1};
 	//Config mode{"", "./DSP/VeryBrightFullFrame.lod", 512, 2048, 1, 1, 0.0, 'M', 1};
 //	Config mode{"", "./DSP/tim.lod", 512, 2048, 1, 1, 0.0, 'M', 1};
 

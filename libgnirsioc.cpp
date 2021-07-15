@@ -252,9 +252,10 @@ public:
 
 			Pixel *buffNow = &buffer[currentOffset - cols]; //row 512 in new buffer
 
+			for (unsigned int i=0; i < cols; i+=32) {
 
-			for (unsigned int i=2; i < cols; i+=2) {
-				std::memcpy(buffNow +  i, &origBuffer[currentOffset + i], 2 * sizeof(Pixel)); //row 513 in PCI device buffer
+				std::memcpy(&buffNow[i+16], &origBuffer[currentOffset + i], 16 * sizeof(Pixel)); //row 513 in PCI device buffer
+														 // copy from quad 1 & 2 to 3 & 4
 			}
 		}
 
@@ -703,8 +704,18 @@ int controllerInterface::setExposure(double fowlerSamples, double adcSamples, do
 }
 
 int controllerInterface::expose(double temp1, double temp2) {
+	
+	tempIN1 = temp1;
+	tempIN2 = temp2;
 
+/*
+	std::thread(&controllerInterface::exposeFunct, this);
 
+	return 0;
+}
+
+void controllerInterface::exposeFunct() const {
+*/
 	gCont->set_size(mode.nrows, mode.ncols);
 
 
@@ -718,8 +729,6 @@ int controllerInterface::expose(double temp1, double temp2) {
 
 	ExpIFace callbacks(debug);
 
-//	cont.start_logging();
-//
 	Camera camera(gCont->getDev(), mode);
 
         std::cout << "Sequence " << mode.sequence << std::endl;
@@ -734,10 +743,6 @@ int controllerInterface::expose(double temp1, double temp2) {
 		camera.expose(gCont, mode.exposure, "/home/readout_data/new/", get_uuid(), &callbacks, processHeader);
 	}
 
-//	cont.stop_logging(std::cout);
-//	custom_expose(cont.getDev(), mode.exposure, mode.nrows, mode.ncols, &callbacks);
-
-//	cont.save_to("test_file2.fits");
-
 	return 0;
+
 }

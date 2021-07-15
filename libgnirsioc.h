@@ -26,6 +26,7 @@ public:
 	int biasHigh();
 	int setExposure(double fowlserSamples, double adcSamples, double exposureTime);
 	int expose(double temp1, double temp2);
+	void exposeFunct() const;
 	void setAladdinIII(bool isAladdinIII);
 	
 
@@ -36,6 +37,9 @@ private:
 	std::string aladdinIIIFilename{"/gem_test/gnirsdc/lib/DSP/AladdinIII_SDSU_Firmware.lod"};
 	bool reset;
 	bool debug;
+
+	double tempIN1;
+	double tempIN2;
 };
 
 
