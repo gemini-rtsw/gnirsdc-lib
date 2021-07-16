@@ -22,6 +22,7 @@
 #define SBV			0x00534256      // set normal bias voltage
 #define SBH			0x00534248      // set high bias voltage
 
+#define ALADDIN_III
 
 struct Config {
 	std::string label;
@@ -215,7 +216,7 @@ void json_set_datalabel(json_object *job, std::string prefix, unsigned nFrames, 
 
 class DataCollector {
 public:
-	DataCollector(Pixel *origin, size_t totalPixels, const std::string &basePath, const std::string &baseFileName, int buffNo);
+	DataCollector(Pixel *origin, size_t totalPixels, int cols, const std::string &basePath, const std::string &baseFileName, int buffNo);
 	std::string getFileName() const { return fileName; };
 	bool full() const { return currentOffset >= buffSize; }
 	void data_save() const;
@@ -228,38 +229,45 @@ public:
 			return;
 		}
 		else if ((buffNow + count) > buffLimit) {
+std::cout << "HIT LIMIT\n";
 			count = buffLimit - buffNow;
 		}
 
+		std::cout << "Addr: " << &origBuffer[currentOffset] << " Addr + count: " << &origBuffer[currentOffset + count] << std::endl;
 		std::memcpy(buffNow, &origBuffer[currentOffset], count * sizeof(Pixel));
 
 		currentOffset += count;
+
+#ifdef ALADDIN_III
+
+		if (full()) {
+			copyRow513(mCols);			
+		}
+#endif
 	}
 
 	inline void copyRow513(size_t cols)
 	{
 
-
-		Pixel *buffNow = &buffer[currentOffset - cols]; //row 512 in new buffer
+		Pixel *buffNow = &buffer[currentOffset - cols]; //row 512 (last row) in new buffer
 
 std::cout << "Buff size: " << buffSize << " current offset: " << currentOffset << " count: " << cols << std::endl;
 
-unsigned short memtest[16] = {sizeof(memtest), 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
-
-		for (unsigned int i=0; i < cols; i+=32) {
+		unsigned int i;
+		for (i=0; i < cols; i+=32) {
 
 			std::memcpy(&buffNow[i+16], &origBuffer[currentOffset + i], 16 * sizeof(Pixel)); //row 513 in PCI device buffer
 													 // copy from quad 1 & 2 to 3 & 4
-
-//			std::memcpy(&buffNow[i], &memtest, sizeof(memtest)); //row 513 in PCI device buffer
 		}
 
+		std::cout << "Addr: " << &origBuffer[currentOffset] << " Addr + i: " << &origBuffer[currentOffset + i] << std::endl;
 	}
 
 	virtual ~DataCollector();
 
 private:
 	size_t buffSize;
+	int mCols;
 	size_t currentOffset;
 
 	Pixel *origBuffer;
@@ -269,29 +277,9 @@ private:
 	std::string fileName;
 };
 
-class Camera {
-public:
-	Camera(CArcDevice *pDevice, const Config &mode);
-	void expose(Controller* cont, float expTime, std::string basepath, std::string basename, CExpIFace* exp_iface=nullptr);
-private:
-	CArcDevice *dev;
-	unsigned dRows;
-	unsigned dCols;
-	unsigned nFrames;
-	unsigned nADCs;
-};
-
-Camera::Camera(CArcDevice *pDevice, const Config &mode)
-	: dev(pDevice),
-	  dRows(mode.nrows),
-	  dCols(mode.ncols),
-	  nFrames(mode.frames),
-	  nADCs(mode.nadcs)
-{
-}
-
-DataCollector::DataCollector(Pixel *origin, size_t totalPixels, const std::string &basePath, const std::string &baseFileName, int buffNo)
+DataCollector::DataCollector(Pixel *origin, size_t totalPixels, int cols, const std::string &basePath, const std::string &baseFileName, int buffNo)
 	: buffSize(totalPixels),
+	  mCols(cols),
        	  currentOffset(0),
 	  origBuffer(origin)
 {
@@ -317,6 +305,27 @@ struct Transfer {
 	DataCollector *collector;
 	size_t count;
 };
+
+class Camera {
+public:
+	Camera(CArcDevice *pDevice, const Config &mode);
+	void expose(Controller* cont, float expTime, std::string basepath, std::string basename, CExpIFace* exp_iface=nullptr);
+private:
+	CArcDevice *dev;
+	unsigned dRows;
+	unsigned dCols;
+	unsigned nFrames;
+	unsigned nADCs;
+};
+
+Camera::Camera(CArcDevice *pDevice, const Config &mode)
+	: dev(pDevice),
+	  dRows(mode.nrows),
+	  dCols(mode.ncols),
+	  nFrames(mode.frames),
+	  nADCs(mode.nadcs)
+{
+}
 
 void
 Camera::expose(Controller* cont, float expTime, std::string basepath, std::string basename, CExpIFace* exp_iface)
@@ -370,7 +379,7 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 
 	DataCollector *collectors[nFrames * 2];
 	for (unsigned i = 0; i < (nFrames * 2); i++) {
-		collectors[i] = new DataCollector((Pixel *)dev->CommonBufferVA(), dRows * dCols, basepath, basename, i);
+		collectors[i] = new DataCollector((Pixel *)dev->CommonBufferVA(), dRows * dCols, dCols, basepath, basename, i);
 		json_object_array_add(samples, json_object_new_string(collectors[i]->getFileName().c_str()));
 	}
 
@@ -421,7 +430,6 @@ std::cout << "Total Count: " << totalCount << std::endl;
 				transfers.pop();
 				t.collector->update(t.count);
 				if (t.collector->full()) {
-					t.collector->copyRow513(dCols);
 					threads.push_back(new std::thread(&DataCollector::data_save, t.collector));
 				}
 			}
@@ -441,7 +449,7 @@ std::cout << "Total Count: " << totalCount << std::endl;
 					clock.set_timing_index(0);
 				}
 
-std::cout << "***Total pixels read this frame: " << dev->GetPixelCount() << std::endl;
+std::cout << "---Total pixels read this frame: " << dev->GetPixelCount() << std::endl;
 	 		cont->save_to(basename + std::to_string(frameIndex) + ".fits");
 
 				frameIndex++;
@@ -459,8 +467,7 @@ std::cout << "***Total pixels read this frame: " << dev->GetPixelCount() << std:
 		transfers.pop();
 		t.collector->update(t.count);
 		if (t.collector->full()) {
-std::cout << "***Total pixels read this frame: " << dev->GetPixelCount() << std::endl;
-			t.collector->copyRow513(dCols);
+std::cout << "+++Total pixels read this frame: " << dev->GetPixelCount() << std::endl;
 			threads.push_back(new std::thread(&DataCollector::data_save, t.collector));
 		}
 	}
@@ -609,10 +616,12 @@ int main(int argc, char **argv) {
 	bool reset = false;
 	bool debug = false;
 	
-	//Config mode{"", "/usr/local/bin/DSP/Aladdin_SDSU_Firmware.lod", 512, 2048, 1, 1, 0.0, 'M', 1};
+#ifdef ALADDIN_III
 	Config mode{"", "./DSP/AladdinIII_SDSU_Firmware.lod", ROWS_PER_FRAME, 2048, 1, 1, 0.0, 'M', 1};
-	//Config mode{"", "./DSP/VeryBrightFullFrame.lod", 512, 2048, 1, 1, 0.0, 'M', 1};
-//	Config mode{"", "./DSP/tim.lod", 512, 2048, 1, 1, 0.0, 'M', 1};
+#else
+	Config mode{"", "./DSP/AladdinII_SDSU_Firmware.lod", ROWS_PER_FRAME, 2048, 1, 1, 0.0, 'M', 1};
+#endif
+
 
 	parse_cmd(argc-1, &argv[1], mode, reset, debug);
 
@@ -637,8 +646,14 @@ int main(int argc, char **argv) {
 	if (debug)
 		std::cout << "Setting up with file" << mode.lod_file << '\n';
 	cont.setup_controller(mode.lod_file, true, reset); // Power on
+
+#ifdef ALADDIN_III
+	if (!reset)
+		cont.set_size(mode.nrows+1, mode.ncols);
+#else
 	if (!reset)
 		cont.set_size(mode.nrows, mode.ncols);
+#endif
 
 	// Setting the bias voltage 
         switch (mode.wellDepth) {

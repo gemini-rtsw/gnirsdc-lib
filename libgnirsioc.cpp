@@ -223,7 +223,7 @@ void json_set_datalabel(json_object *job, std::string prefix, unsigned nFrames, 
 
 class DataCollector {
 public:
-	DataCollector(Pixel *origin, size_t totalPixels, const std::string &basePath, const std::string &baseFileName, int buffNo);
+	DataCollector(Pixel *origin, size_t totalPixels, int cols, const std::string &basePath, const std::string &baseFileName, int buffNo);
 	std::string getFileName() const { return fileName; };
 	bool full() const { return currentOffset >= buffSize; }
 	void data_save() const;
@@ -242,21 +242,22 @@ public:
 		std::memcpy(buffNow, &origBuffer[currentOffset], count * sizeof(Pixel));
 
 		currentOffset += count;
+
+		if (full() && gIsAladdinIII) {
+			copyRow513(mCols);
+		}
 	}
 
         inline void copyRow513(size_t cols)
         {
+		std::cout << "Aladdin III copying extra row 513\n";
 
-		if (gIsAladdinIII) {
-			std::cout << "Aladdin III copying extra row 513\n";
+		Pixel *buffNow = &buffer[currentOffset - cols]; //row 512 in new buffer
 
-			Pixel *buffNow = &buffer[currentOffset - cols]; //row 512 in new buffer
+		for (unsigned int i=0; i < cols; i+=32) {
 
-			for (unsigned int i=0; i < cols; i+=32) {
-
-				std::memcpy(&buffNow[i+16], &origBuffer[currentOffset + i], 16 * sizeof(Pixel)); //row 513 in PCI device buffer
-														 // copy from quad 1 & 2 to 3 & 4
-			}
+			std::memcpy(&buffNow[i+16], &origBuffer[currentOffset + i], 16 * sizeof(Pixel)); //row 513 in PCI device buffer
+													 // copy from quad 1 & 2 to 3 & 4
 		}
 
         }
@@ -265,6 +266,7 @@ public:
 
 private:
 	size_t buffSize;
+	int mCols;
 	size_t currentOffset;
 
 	Pixel *origBuffer;
@@ -295,8 +297,9 @@ Camera::Camera(CArcDevice *pDevice, const Config &mode)
 {
 }
 
-DataCollector::DataCollector(Pixel *origin, size_t totalPixels, const std::string &basePath, const std::string &baseFileName, int buffNo)
+DataCollector::DataCollector(Pixel *origin, size_t totalPixels, int cols, const std::string &basePath, const std::string &baseFileName, int buffNo)
 	: buffSize(totalPixels),
+	  mCols(cols),
        	  currentOffset(0),
 	  origBuffer(origin)
 {
@@ -377,7 +380,7 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 
 	DataCollector *collectors[nFrames * 2];
 	for (unsigned i = 0; i < (nFrames * 2); i++) {
-		collectors[i] = new DataCollector((Pixel *)dev->CommonBufferVA(), dRows * dCols, basepath, basename, i);
+		collectors[i] = new DataCollector((Pixel *)dev->CommonBufferVA(), dRows * dCols, dCols, basepath, basename, i);
 		json_object_array_add(samples, json_object_new_string(collectors[i]->getFileName().c_str()));
 	}
 
@@ -423,7 +426,6 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 				transfers.pop();
 				t.collector->update(t.count);
 				if (t.collector->full()) {
-					t.collector->copyRow513(dCols);
 					threads.push_back(new std::thread(&DataCollector::data_save, t.collector));
 				}
 			}
@@ -459,7 +461,6 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 		transfers.pop();
 		t.collector->update(t.count);
 		if (t.collector->full()) {
-			t.collector->copyRow513(dCols);
 			threads.push_back(new std::thread(&DataCollector::data_save, t.collector));
 		}
 	}
@@ -716,8 +717,13 @@ int controllerInterface::expose(double temp1, double temp2) {
 
 void controllerInterface::exposeFunct() const {
 */
-	gCont->set_size(mode.nrows, mode.ncols);
 
+	if (gIsAladdinIII) {
+		gCont->set_size(mode.nrows + 1, mode.ncols);
+	}
+	else {
+		gCont->set_size(mode.nrows, mode.ncols);
+	};
 
 	if (debug) {
 		std::cout << "Testing for mode: " << mode.label << '\n';

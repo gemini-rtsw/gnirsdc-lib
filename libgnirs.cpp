@@ -190,12 +190,12 @@ Controller::set_size(int rows, int cols)
 
 		return false;
 	}
-
+/*
 	if ((rows > maxRows) || (cols > maxCols)) {
 		std::cerr << "Provided size larger than the detector\n";
 		return false;
 	}
-
+*/
 	pArcDev->UnMapCommonBuffer();
 	pArcDev->SetImageSize(rows, cols);
 
