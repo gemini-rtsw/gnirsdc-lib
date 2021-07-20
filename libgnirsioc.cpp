@@ -282,13 +282,15 @@ public:
 	Camera(CArcDevice *pDevice, const Config &mode);
 	void expose(Controller* cont, float expTime, std::string basepath, std::string basename, CExpIFace* exp_iface, std::function<void (json_object*)>);
 	void abort();
+
+	static bool isAbort;
+
 private:
 	CArcDevice *dev;
 	unsigned dRows;
 	unsigned dCols;
 	unsigned nFrames;
 	unsigned nADCs;
-	static bool isAbort;
 };
 
 
@@ -705,11 +707,12 @@ int controllerInterface::biasHigh() {
 	return 0;
 }
 
-int controllerInterface::setExposure(double fowlerSamples, double adcSamples, double exposureTime) {
+int controllerInterface::setExposure(double fowlerSamples, double adcSamples, double exposureTime, int sequence) {
 
 	if (fowlerSamples < 1) fowlerSamples = 1;
 	if (adcSamples < 1) adcSamples = 1;
 	if (exposureTime < 0) exposureTime = 0;
+	if (sequence < 1) sequence = 1;
 
 
 	mode.frames = fowlerSamples;
@@ -717,6 +720,7 @@ int controllerInterface::setExposure(double fowlerSamples, double adcSamples, do
 	mode.exposure = exposureTime;
 	mode.nrows = ROWS_PER_FRAME;
         mode.ncols = COLS_PER_FRAME * mode.nadcs; 
+	mode.sequence = sequence;
 
 	std::cout << "Fowler samples: " << mode.frames << " ADCs: " << mode.nadcs << " Exposure time: " << mode.exposure << std::endl;
 
@@ -725,7 +729,7 @@ int controllerInterface::setExposure(double fowlerSamples, double adcSamples, do
 
 int controllerInterface::startExposure(double temp1, double temp2) {
 	if (busyMutex.try_lock()) {
-		std::cout << "Mutex\n";
+		std::cout << "Locking mutex\n";
 
 		tempIN1 = temp1;
 		tempIN2 = temp2;
@@ -782,8 +786,11 @@ int controllerInterface::expose(double temp1, double temp2) {
 
 
         for (int i=0; i < mode.sequence; i++) {
+		if (Camera::isAbort) break;
 		camera.expose(gCont, mode.exposure, "/home/readout_data/new/", get_uuid(), &callbacks, processHeader);
 	}
+
+	Camera::isAbort = false;
 
 
 	std::cout << "Exposure complete\n";

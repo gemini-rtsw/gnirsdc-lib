@@ -25,7 +25,7 @@ public:
 	int biasLow();
 	int biasMed();
 	int biasHigh();
-	int setExposure(double fowlserSamples, double adcSamples, double exposureTime);
+	int setExposure(double fowlserSamples, double adcSamples, double exposureTime, int sequence);
 	void setAladdinIII(bool isAladdinIII);
         int startExposure(double temp1, double temp2);	
 	void abortExposure();
