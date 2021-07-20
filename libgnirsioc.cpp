@@ -20,6 +20,7 @@
 
 #define SFS			0x00534653	// Send number of Fowler Samples
 #define SDS			0x00534453	// Send number of Digital Samples
+#define AEX			0x00414558	// Send number of Digital Samples
 
 #define SBL			0x0053424C      // Set low bias voltage
 #define SBV			0x00534256      // set normal bias voltage
@@ -280,13 +281,18 @@ class Camera {
 public:
 	Camera(CArcDevice *pDevice, const Config &mode);
 	void expose(Controller* cont, float expTime, std::string basepath, std::string basename, CExpIFace* exp_iface, std::function<void (json_object*)>);
+	void abort();
 private:
 	CArcDevice *dev;
 	unsigned dRows;
 	unsigned dCols;
 	unsigned nFrames;
 	unsigned nADCs;
+	static bool isAbort;
 };
+
+
+bool Camera::isAbort = false; 
 
 Camera::Camera(CArcDevice *pDevice, const Config &mode)
 	: dev(pDevice),
@@ -294,6 +300,7 @@ Camera::Camera(CArcDevice *pDevice, const Config &mode)
 	  dCols(mode.ncols),
 	  nFrames(mode.frames),
 	  nADCs(mode.nadcs)
+
 {
 }
 
@@ -325,6 +332,15 @@ struct Transfer {
 	DataCollector *collector;
 	size_t count;
 };
+
+void
+Camera::abort() {
+        if (dev->Command( TIM_ID, AEX ) != DON) {
+                throw std::runtime_error("Aborting exposure failed");
+        }
+	std::cout << "Abort command send\n";
+	isAbort = true;
+}
 
 void
 Camera::expose(Controller* cont, float expTime, std::string basepath, std::string basename, CExpIFace* exp_iface, std::function<void(json_object* obj)> processHeader)
@@ -399,8 +415,9 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 	clock.set_timing_prefix("RESET_");
 	clock.set_timing_index(1);
 
+	isAbort = false;
 
-	while ( pixelsCopied < totalCount) {
+	while ( (pixelsCopied < totalCount) & !isAbort) {
 		if (pixelCount < totalCount) {
 			int pixelRead = dev->GetPixelCount();
 			int diff = pixelRead - latestPixelCount;
@@ -491,6 +508,8 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 
 	ofs << json_object_to_json_string_ext(json_output, JSON_C_TO_STRING_PRETTY) << '\n';
 	json_object_put(json_output);
+
+
 }
 
 void parse_cmd(int argc, char **argv, Config& mode, bool& reset, bool& debug)
@@ -607,7 +626,7 @@ std::string get_uuid() {
 }
 
 
-controllerInterface::controllerInterface()  {
+controllerInterface::controllerInterface() : exposureThread(NULL)  {
 
  	gCont = new Controller(512, 12288);
 
@@ -704,20 +723,37 @@ int controllerInterface::setExposure(double fowlerSamples, double adcSamples, do
 	return 0;
 }
 
-int controllerInterface::expose(double temp1, double temp2) {
-	
-	tempIN1 = temp1;
-	tempIN2 = temp2;
+int controllerInterface::startExposure(double temp1, double temp2) {
+	if (busyMutex.try_lock()) {
+		std::cout << "Mutex\n";
 
-/*
-	std::thread(&controllerInterface::exposeFunct, this);
+		tempIN1 = temp1;
+		tempIN2 = temp2;
 
+		new std::thread(&controllerInterface::exposeFunct, this);
+
+	}
+	else {
+	 	std::cout << "Exposure in progress...exiting\n";
+	}
 	return 0;
 }
 
-void controllerInterface::exposeFunct() const {
-*/
+void controllerInterface::abortExposure() {
+	Camera camera(gCont->getDev(), mode);
+	camera.abort();	
+}
 
+void controllerInterface::exposeFunct() {
+	expose(tempIN1, tempIN2);
+
+	std::cout << "Unlocking mutex\n";
+
+	busyMutex.unlock();
+}
+
+int controllerInterface::expose(double temp1, double temp2) {
+	
 	if (gIsAladdinIII) {
 		gCont->set_size(mode.nrows + 1, mode.ncols);
 	}
@@ -748,6 +784,9 @@ void controllerInterface::exposeFunct() const {
         for (int i=0; i < mode.sequence; i++) {
 		camera.expose(gCont, mode.exposure, "/home/readout_data/new/", get_uuid(), &callbacks, processHeader);
 	}
+
+
+	std::cout << "Exposure complete\n";
 
 	return 0;
 
