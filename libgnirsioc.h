@@ -29,6 +29,9 @@ public:
 	void setAladdinIII(bool isAladdinIII);
         int startExposure(double temp1, double temp2);	
 	void abortExposure();
+	void resetArray();
+	void resetReadArray();
+	void readoutArray();
 
         std::mutex busyMutex;
 

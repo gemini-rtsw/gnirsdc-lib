@@ -20,25 +20,16 @@
 
 #define SFS			0x00534653	// Send number of Fowler Samples
 #define SDS			0x00534453	// Send number of Digital Samples
-#define AEX			0x00414558	// Send number of Digital Samples
+#define AEX			0x00414558	// Abort
 
 #define SBL			0x0053424C      // Set low bias voltage
 #define SBV			0x00534256      // set normal bias voltage
 #define SBH			0x00534248      // set high bias voltage
 
-/*
-struct Config {
-	std::string label;
-	std::string lod_file;
-	unsigned nrows;
-	unsigned ncols;
-	unsigned nadcs;
-	unsigned frames;
-	float exposure;
-        char wellDepth;
-	int sequence;
-};
-*/
+#define RAR 			0x00524152      // Reset array 
+#define RRO			0x0052524f      // Reset then readout array 
+#define ROR			0x00524f52      // Reset then readout array 
+
 
 
 Controller *gCont;
@@ -253,12 +244,17 @@ public:
         {
 		std::cout << "Aladdin III copying extra row 513\n";
 
-		Pixel *buffNow = &buffer[currentOffset - cols]; //row 512 in new buffer
+
+		Pixel *buff512 = &buffer[currentOffset - cols]; //row 512 (last row) in new buffer
+		Pixel *buff511 = &buffer[currentOffset - 2 * cols]; //row 511 (2nd to last row) in new buffer
 
 		for (unsigned int i=0; i < cols; i+=32) {
 
-			std::memcpy(&buffNow[i+16], &origBuffer[currentOffset + i], 16 * sizeof(Pixel)); //row 513 in PCI device buffer
-													 // copy from quad 1 & 2 to 3 & 4
+			std::memcpy(&buff512[i+16], &origBuffer[currentOffset + i], 16 * sizeof(Pixel)); //row 513 in PCI device buffer
+													 // copy from row 513 quad 1 & 2 to row 512 3 & 4
+													 //
+			std::memcpy(&buff511[i+16], &origBuffer[currentOffset + i+16], 16 * sizeof(Pixel)); //row 513 in PCI device buffer
+													 // copy from row 513 quad 3 & 4 to row 511 of 3 & 4
 		}
 
         }
@@ -343,6 +339,7 @@ Camera::abort() {
 	std::cout << "Abort command send\n";
 	isAbort = true;
 }
+
 
 void
 Camera::expose(Controller* cont, float expTime, std::string basepath, std::string basename, CExpIFace* exp_iface, std::function<void(json_object* obj)> processHeader)
@@ -453,7 +450,6 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 			pixelsCopiedThisFrame += pixelsPerTransfer;
 			pixelsCopied += pixelsPerTransfer;
 
-//	 		cont->save_to(basename + std::to_string(frameIndex) + ".fits");
 
 			if (rowsCopiedThisFrame >= dRows) {
 				clock.add_measurement(steady_clock::now());
@@ -464,6 +460,8 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 					clock.set_timing_prefix("SIGNAL_");
 					clock.set_timing_index(0);
 				}
+
+//	 		cont->save_to(basename + std::to_string(frameIndex) + ".fits");
 
 				frameIndex++;
 				currentCollector = collectors[frameIndex];
@@ -748,10 +746,38 @@ void controllerInterface::abortExposure() {
 	camera.abort();	
 }
 
+void controllerInterface::resetArray() {
+        if (gCont->getDev()->Command( TIM_ID, RAR ) != DON) {
+                throw std::runtime_error("Reset array failed");
+        }
+	std::cout << "Reset array command send\n";
+
+}
+
+void controllerInterface::resetReadArray() {
+        if (gCont->getDev()->Command( TIM_ID, RRO ) != DON) {
+                throw std::runtime_error("Reset read array failed");
+        }
+	std::cout << "Reset read array command send\n";
+
+}
+
+void controllerInterface::readoutArray() {
+        if (gCont->getDev()->Command( TIM_ID, ROR ) != DON) {
+                throw std::runtime_error("Readout array failed");
+        }
+	std::cout << "Readout array command send\n";
+
+}
+
+
+
 void controllerInterface::exposeFunct() {
 	expose(tempIN1, tempIN2);
 
-	std::cout << "Unlocking mutex\n";
+	std::cout << "Processing Raw Data\n";
+	system("proc_data.sh");
+	std::cout << "-------- Exposure complete --------  Unlocking mutex\n";
 
 	busyMutex.unlock();
 }

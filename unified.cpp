@@ -249,15 +249,19 @@ std::cout << "HIT LIMIT\n";
 	inline void copyRow513(size_t cols)
 	{
 
-		Pixel *buffNow = &buffer[currentOffset - cols]; //row 512 (last row) in new buffer
+		Pixel *buff512 = &buffer[currentOffset - cols]; //row 512 (last row) in new buffer
+		Pixel *buff511 = &buffer[currentOffset - 2 * cols]; //row 511 (2nd to last row) in new buffer
 
 std::cout << "Buff size: " << buffSize << " current offset: " << currentOffset << " count: " << cols << std::endl;
 
 		unsigned int i;
 		for (i=0; i < cols; i+=32) {
 
-			std::memcpy(&buffNow[i+16], &origBuffer[currentOffset + i], 16 * sizeof(Pixel)); //row 513 in PCI device buffer
-													 // copy from quad 1 & 2 to 3 & 4
+			std::memcpy(&buff512[i+16], &origBuffer[currentOffset + i], 16 * sizeof(Pixel)); //row 513 in PCI device buffer
+													 // copy from row 513 quad 1 & 2 to row 512 3 & 4
+													 //
+			std::memcpy(&buff511[i+16], &origBuffer[currentOffset + i+16], 16 * sizeof(Pixel)); //row 513 in PCI device buffer
+													 // copy from row 513 quad 3 & 4 to row 511 of 3 & 4
 		}
 
 		std::cout << "Addr: " << &origBuffer[currentOffset] << " Addr + i: " << &origBuffer[currentOffset + i] << std::endl;
