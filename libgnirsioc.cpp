@@ -726,18 +726,18 @@ int controllerInterface::setExposure(double fowlerSamples, double adcSamples, do
 }
 
 int controllerInterface::startExposure(double temp1, double temp2) {
-	if (busyMutex.try_lock()) {
-		std::cout << "Locking mutex\n";
+//	if (busyMutex.try_lock()) {
+//		std::cout << "Locking mutex\n";
 
 		tempIN1 = temp1;
 		tempIN2 = temp2;
 
 		new std::thread(&controllerInterface::exposeFunct, this);
 
-	}
-	else {
-	 	std::cout << "Exposure in progress...exiting\n";
-	}
+//	}
+//	else {
+//	 	std::cout << "Exposure in progress...exiting\n";
+//j	}
 	return 0;
 }
 
@@ -773,13 +773,20 @@ void controllerInterface::readoutArray() {
 
 
 void controllerInterface::exposeFunct() {
-	expose(tempIN1, tempIN2);
+	if (busyMutex.try_lock()) {
+		std::cout << "Locking mutex\n";
 
-	std::cout << "Processing Raw Data\n";
-	system("proc_data.sh");
-	std::cout << "-------- Exposure complete --------  Unlocking mutex\n";
+		expose(tempIN1, tempIN2);
 
-	busyMutex.unlock();
+
+		std::cout << "Processing Raw Data\n";
+		system("proc_data.sh");
+		std::cout << "-------- Exposure complete --------  Unlocking mutex\n";
+		busyMutex.unlock();
+	}
+	else {
+	 	std::cout << "Exposure currently in progress...aborting this exposure request\n";
+	}
 }
 
 int controllerInterface::expose(double temp1, double temp2) {
