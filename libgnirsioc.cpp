@@ -377,13 +377,11 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 	json_object *samples = json_object_new_array();
 	json_object *timing = json_object_new_object();
 	json_object *temperature = json_object_new_object();
-	json_object *bias_voltage = json_object_new_object();
 
 	json_object_object_add(json_output, "PDU", pdu);
 	json_object_object_add(json_output, "FRAMES", samples);
 	json_object_object_add(json_output, "TIME_SAMPLES", timing);
 	json_object_object_add(json_output, "TEMPERATURE", temperature);
-	json_object_object_add(json_output, "BIAS_VOLTAGE", bias_voltage);
 
 	json_object_object_add(pdu, "CAMERA", json_object_new_string("GNIRS"));
 	json_set_datalabel(pdu, "test-image", nFrames, nADCs);
@@ -501,7 +499,7 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 
 
 
-	processHeader(temperature, bias_voltage);
+	processHeader(temperature, pdu);//bias_voltage, p_mode);
 
 
 	std::ostringstream oss;
@@ -814,7 +812,8 @@ int controllerInterface::expose() {
 
         std::cout << "Sequence " << mode.sequence << std::endl;
 
-	auto processHeader = [this](json_object* temp, json_object* bias){
+	auto processHeader = [this](json_object* temp, json_object* pdu){//json_object* bias, json_object* pmode){
+
                         json_object_object_add(temp, "TEMP IN1", json_object_new_double(this->tempIN1));
                         json_object_object_add(temp, "TEMP IN2", json_object_new_double(this->tempIN2));
 		
@@ -824,7 +823,12 @@ int controllerInterface::expose() {
 				case MEDIUM: biasVolts = -3.4;break;
 				case HIGH: biasVolts = -3.6;break;
 			}
-                        json_object_object_add(bias, "VOLTAGE", json_object_new_double(biasVolts));
+                        json_object_object_add(pdu, "BIAS", json_object_new_double(biasVolts));
+
+			if (this->include_raw)
+	                        json_object_object_add(pdu, "P_MODE", json_object_new_string("SEP"));
+			else
+	                        json_object_object_add(pdu, "P_MODE", json_object_new_string("STARE"));
                 };
 
 
