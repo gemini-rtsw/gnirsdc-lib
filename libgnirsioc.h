@@ -5,6 +5,8 @@
 #include <thread>
 #include <mutex>
 
+typedef enum BiasLevel { LOW, MEDIUM, HIGH } BiasLevel;
+
 struct Config {
 	std::string label;
 	std::string lod_file;
@@ -27,7 +29,7 @@ public:
 	int biasHigh();
 	int setExposure(double fowlserSamples, double adcSamples, double exposureTime, int sequence);
 	void setAladdinIII(bool isAladdinIII);
-        int startExposure(double temp1, double temp2);	
+        int startExposure(double temp1, double temp2, bool raw);	
 	void abortExposure();
 	void resetArray();
 	void resetReadArray();
@@ -37,16 +39,21 @@ public:
 
 	Config mode{"", "/gem_test/gnirsdc/lib/DSP/AladdinII_SDSU_Firmware.lod", 512, 2048, 1, 1, 0.0, 'M', 1};
 
+
 private:
 	void exposeFunct();
-	int expose(double temp1, double temp2);
+	int expose();
 	std::string aladdinIIFilename{"/gem_test/gnirsdc/lib/DSP/AladdinII_SDSU_Firmware.lod"};
 	std::string aladdinIIIFilename{"/gem_test/gnirsdc/lib/DSP/AladdinIII_SDSU_Firmware.lod"};
 	bool reset;
 	bool debug;
 
+	BiasLevel currentBias = MEDIUM;
+
 	double tempIN1;
 	double tempIN2;
+
+	bool include_raw;
 
 	std::thread* exposureThread;
 };

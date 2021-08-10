@@ -46,8 +46,8 @@ using Pixel = unsigned short;
 
 static constexpr auto READ_TIMEOUT = 200;
 static constexpr int SDSU3_PON_BIT = 0x400000;
-static constexpr int MAX_FS = 64; // Twice the usual max
-static constexpr int MAX_ADCS = 12; // Twice the usual max
+static constexpr int MAX_FS = 256; 
+static constexpr int MAX_ADCS = 256; 
 static constexpr int ROWS_PER_FRAME = 512;
 static constexpr int COLS_PER_FRAME = 2048; // Twice the usual max
 
@@ -276,7 +276,7 @@ private:
 class Camera {
 public:
 	Camera(CArcDevice *pDevice, const Config &mode);
-	void expose(Controller* cont, float expTime, std::string basepath, std::string basename, CExpIFace* exp_iface, std::function<void (json_object*)>);
+	void expose(Controller* cont, float expTime, std::string basepath, std::string basename, CExpIFace* exp_iface, std::function<void (json_object*, json_object*)>);
 	void abort();
 
 	static bool isAbort;
@@ -342,7 +342,7 @@ Camera::abort() {
 
 
 void
-Camera::expose(Controller* cont, float expTime, std::string basepath, std::string basename, CExpIFace* exp_iface, std::function<void(json_object* obj)> processHeader)
+Camera::expose(Controller* cont, float expTime, std::string basepath, std::string basename, CExpIFace* exp_iface, std::function<void(json_object* obj1, json_object* obj2)> processHeader)
 {
 	int msec = int( expTime * 1000 );
 //	ExposurePhase status = ExposurePhase::FIRST_READOUT;
@@ -377,11 +377,13 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 	json_object *samples = json_object_new_array();
 	json_object *timing = json_object_new_object();
 	json_object *temperature = json_object_new_object();
+	json_object *bias_voltage = json_object_new_object();
 
 	json_object_object_add(json_output, "PDU", pdu);
 	json_object_object_add(json_output, "FRAMES", samples);
 	json_object_object_add(json_output, "TIME_SAMPLES", timing);
 	json_object_object_add(json_output, "TEMPERATURE", temperature);
+	json_object_object_add(json_output, "BIAS_VOLTAGE", bias_voltage);
 
 	json_object_object_add(pdu, "CAMERA", json_object_new_string("GNIRS"));
 	json_set_datalabel(pdu, "test-image", nFrames, nADCs);
@@ -482,7 +484,7 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 		}
 	}
 
-	dev->StopExposure();
+//	dev->StopExposure();
 	std::cerr << "Total loops = " << loops << '\n';
 	std::cerr << "Joining threads\n";
 	for (auto t: threads) {
@@ -499,7 +501,7 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 
 
 
-	processHeader(temperature);
+	processHeader(temperature, bias_voltage);
 
 
 	std::ostringstream oss;
@@ -633,6 +635,8 @@ controllerInterface::controllerInterface() : exposureThread(NULL)  {
 	reset = false;
 	debug = false;
 
+	//include_raw = false;
+
 	gCont->connect_device();
 
 	std::cout << "List of devices:\n";
@@ -678,6 +682,8 @@ int controllerInterface::init() {
 int controllerInterface::biasLow() {
 
 	std::cout << "Well Depth set to -3.2 \n";
+
+	currentBias = LOW;
 	if (gCont->getDev()->Command( TIM_ID, SBL ) != DON) {
 		throw std::runtime_error("Set bias voltage");
 	}
@@ -688,6 +694,8 @@ int controllerInterface::biasLow() {
 int controllerInterface::biasMed() {
 
 	std::cout << "Well Depth set to -3.4 \n";
+
+	currentBias = MEDIUM;
 	if (gCont->getDev()->Command( TIM_ID, SBV ) != DON) {
 		throw std::runtime_error("Set bias voltage");
 	}
@@ -698,6 +706,8 @@ int controllerInterface::biasMed() {
 int controllerInterface::biasHigh() {
 
 	std::cout << "Well Depth set to -3.6 \n";
+
+	currentBias = HIGH;
 	if (gCont->getDev()->Command( TIM_ID, SBH ) != DON) {
 		throw std::runtime_error("Set bias voltage");
 	}
@@ -725,19 +735,13 @@ int controllerInterface::setExposure(double fowlerSamples, double adcSamples, do
 	return 0;
 }
 
-int controllerInterface::startExposure(double temp1, double temp2) {
-//	if (busyMutex.try_lock()) {
-//		std::cout << "Locking mutex\n";
+int controllerInterface::startExposure(double temp1, double temp2, bool raw) {
+	include_raw=raw;
+	tempIN1 = temp1;
+	tempIN2 = temp2;
 
-		tempIN1 = temp1;
-		tempIN2 = temp2;
+	new std::thread(&controllerInterface::exposeFunct, this);
 
-		new std::thread(&controllerInterface::exposeFunct, this);
-
-//	}
-//	else {
-//	 	std::cout << "Exposure in progress...exiting\n";
-//j	}
 	return 0;
 }
 
@@ -776,11 +780,9 @@ void controllerInterface::exposeFunct() {
 	if (busyMutex.try_lock()) {
 		std::cout << "Locking mutex\n";
 
-		expose(tempIN1, tempIN2);
+		expose();
 
 
-		std::cout << "Processing Raw Data\n";
-		system("proc_data.sh");
 		std::cout << "-------- Exposure complete --------  Unlocking mutex\n";
 		busyMutex.unlock();
 	}
@@ -789,7 +791,7 @@ void controllerInterface::exposeFunct() {
 	}
 }
 
-int controllerInterface::expose(double temp1, double temp2) {
+int controllerInterface::expose() {
 	
 	if (gIsAladdinIII) {
 		gCont->set_size(mode.nrows + 1, mode.ncols);
@@ -812,15 +814,29 @@ int controllerInterface::expose(double temp1, double temp2) {
 
         std::cout << "Sequence " << mode.sequence << std::endl;
 
-	auto processHeader = [temp1, temp2](json_object* temp){
-                        json_object_object_add(temp, "TEMP IN1", json_object_new_double(temp1));
-                        json_object_object_add(temp, "TEMP IN2", json_object_new_double(temp2));
+	auto processHeader = [this](json_object* temp, json_object* bias){
+                        json_object_object_add(temp, "TEMP IN1", json_object_new_double(this->tempIN1));
+                        json_object_object_add(temp, "TEMP IN2", json_object_new_double(this->tempIN2));
+		
+			double biasVolts = 0;	
+			switch (this->currentBias) {
+				case LOW: biasVolts = -3.2;break;
+				case MEDIUM: biasVolts = -3.4;break;
+				case HIGH: biasVolts = -3.6;break;
+			}
+                        json_object_object_add(bias, "VOLTAGE", json_object_new_double(biasVolts));
                 };
 
 
         for (int i=0; i < mode.sequence; i++) {
 		if (Camera::isAbort) break;
 		camera.expose(gCont, mode.exposure, "/home/readout_data/new/", get_uuid(), &callbacks, processHeader);
+
+		std::cout << "Processing Raw Data\n";
+		if (include_raw)
+			system("proc_data.sh -r");
+		else 
+			system("proc_data.sh");
 	}
 
 	Camera::isAbort = false;
