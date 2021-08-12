@@ -15,6 +15,8 @@
 #include "json.h"
 #include "libgnirs.h"
 #include <CExpIFace.h>
+#include <execinfo.h>
+#include <signal.h>
 
 #include "libgnirsioc.h"
 
@@ -58,6 +60,8 @@ bool gIsAladdinIII = false;
 
 using namespace arc::device;
 using namespace arc::deinterlace;
+
+
 
 class ExpIFace : public CExpIFace
 {
@@ -233,6 +237,8 @@ public:
 
 		std::memcpy(buffNow, &origBuffer[currentOffset], count * sizeof(Pixel));
 
+		std::cout << "Copied DMA block\n";
+
 		currentOffset += count;
 
 		if (full() && gIsAladdinIII) {
@@ -242,7 +248,7 @@ public:
 
         inline void copyRow513(size_t cols)
         {
-		std::cout << "Aladdin III copying extra row 513\n";
+		std::cout << "Aladdin III copied DMA extra row 513\n";
 
 
 		Pixel *buff512 = &buffer[currentOffset - cols]; //row 512 (last row) in new buffer
@@ -323,7 +329,7 @@ void DataCollector::data_save() const
 {
 	std::ofstream fs(path);
 	fs.write((const char *)buffer, buffSize * sizeof(Pixel));
-	std::cerr << "Saved buffer to file " << fileName << '\n';
+	std::cerr << "aved buffer to file " << fileName << '\n';
 }
 
 struct Transfer {
@@ -333,11 +339,10 @@ struct Transfer {
 
 void
 Camera::abort() {
+	isAbort = true;
         if (dev->Command( TIM_ID, AEX ) != DON) {
                 throw std::runtime_error("Aborting exposure failed");
         }
-	std::cout << "Abort command send\n";
-	isAbort = true;
 }
 
 
@@ -414,6 +419,9 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 	clock.set_timing_prefix("RESET_");
 	clock.set_timing_index(1);
 
+
+	std::cout << "ARC controller readout and exposure started\n";
+
 	isAbort = false;
 
 	while ( (pixelsCopied < totalCount) & !isAbort) {
@@ -436,12 +444,14 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 		}
 
 		if ((pixelCount - pixelsCopied) >= pixelsPerTransfer) {
+std::cout << "3";
 			transfers.push({currentCollector, pixelsPerTransfer});
 			if (transfers.size() > lagBy) {
 				Transfer t(transfers.front());
 				transfers.pop();
 				t.collector->update(t.count);
 				if (t.collector->full()) {
+					std::cout << "Readout DMA copy complete\n";
 					threads.push_back(new std::thread(&DataCollector::data_save, t.collector));
 				}
 			}
@@ -452,9 +462,11 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 
 
 			if (rowsCopiedThisFrame >= dRows) {
+std::cout << "4";
 				clock.add_measurement(steady_clock::now());
 
 				if (reading_reset && (clock.timing_index() > nFrames)) {
+std::cout << "5";
 					reading_reset = false;
 					waiting_for_signal = true;
 					clock.set_timing_prefix("SIGNAL_");
@@ -473,11 +485,13 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 		loops++;
 	}
 	auto ut_end = steady_clock::now();
-	while (transfers.size() > 0) {
+	while (transfers.size() > 0 && !isAbort) {
+std::cout << "6";
 		Transfer t(transfers.front());
 		transfers.pop();
 		t.collector->update(t.count);
 		if (t.collector->full()) {
+			std::cout << "Readout DMA copy complete\n";
 			threads.push_back(new std::thread(&DataCollector::data_save, t.collector));
 		}
 	}
@@ -628,6 +642,7 @@ std::string get_uuid() {
 
 controllerInterface::controllerInterface() : exposureThread(NULL)  {
 
+
  	gCont = new Controller(512, 12288);
 
 	reset = false;
@@ -651,6 +666,7 @@ controllerInterface::~controllerInterface() {
 }
 
 void controllerInterface::setAladdinIII(bool isAladdinIII) {
+
 	if (isAladdinIII) {
 		printf("Firmware set to Aladdin III\n");
 		mode.lod_file = aladdinIIIFilename;
@@ -744,8 +760,18 @@ int controllerInterface::startExposure(double temp1, double temp2, bool raw) {
 }
 
 void controllerInterface::abortExposure() {
+	std::cout << "Trying to abort\n";
 	Camera camera(gCont->getDev(), mode);
-	camera.abort();	
+
+
+	try {
+		camera.abort();	
+	}
+	catch (std::runtime_error& error) {
+		std::cout << "Error: " << error.what() << std::endl;
+		std::cout << "Will abort after current readout\n";
+	}
+
 }
 
 void controllerInterface::resetArray() {
@@ -776,6 +802,7 @@ void controllerInterface::readoutArray() {
 
 void controllerInterface::exposeFunct() {
 	if (busyMutex.try_lock()) {
+		
 		std::cout << "Locking mutex\n";
 
 		expose();
@@ -832,6 +859,8 @@ int controllerInterface::expose() {
                 };
 
 
+	Camera::isAbort = false; //just incase abort is pressed while not in an exposure
+
         for (int i=0; i < mode.sequence; i++) {
 		if (Camera::isAbort) break;
 		camera.expose(gCont, mode.exposure, "/home/readout_data/new/", get_uuid(), &callbacks, processHeader);
@@ -847,6 +876,8 @@ int controllerInterface::expose() {
 
 
 	std::cout << "Exposure complete\n";
+
+	system("sequence_complete.sh");
 
 	return 0;
 
