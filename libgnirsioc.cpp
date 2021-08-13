@@ -523,6 +523,9 @@ std::cout << "6";
 	ofs << json_object_to_json_string_ext(json_output, JSON_C_TO_STRING_PRETTY) << '\n';
 	json_object_put(json_output);
 
+	for (unsigned i = 0; i < (nFrames * 2); i++) {
+		delete collectors[i];
+	}
 
 }
 
@@ -698,7 +701,7 @@ int controllerInterface::biasLow() {
 	std::cout << "Well Depth set to -3.2 \n";
 
 	currentBias = LOW;
-	if (gCont->getDev()->Command( TIM_ID, SBL ) != DON) {
+	if (gCont->getDev()->Command( TIM_ID, SBH ) != DON) { ///NOTE: bias labels are backwards SBH is shallow well
 		throw std::runtime_error("Set bias voltage");
 	}
 
@@ -722,7 +725,7 @@ int controllerInterface::biasHigh() {
 	std::cout << "Well Depth set to -3.6 \n";
 
 	currentBias = HIGH;
-	if (gCont->getDev()->Command( TIM_ID, SBH ) != DON) {
+	if (gCont->getDev()->Command( TIM_ID, SBL ) != DON) {   ///NOTE: bias labels are backwards SBL is deep well
 		throw std::runtime_error("Set bias voltage");
 	}
 
@@ -850,7 +853,9 @@ int controllerInterface::expose() {
 				case MEDIUM: biasVolts = -3.4;break;
 				case HIGH: biasVolts = -3.6;break;
 			}
-                        json_object_object_add(pdu, "BIAS", json_object_new_double(biasVolts));
+                        json_object_object_add(pdu, "VDET", json_object_new_double(biasVolts));
+                        json_object_object_add(pdu, "VDDUC", json_object_new_double(-4.0));
+                        json_object_object_add(pdu, "DETBIAS", json_object_new_double(-4.0 - biasVolts));
 
 			if (this->include_raw)
 	                        json_object_object_add(pdu, "P_MODE", json_object_new_string("SEP"));
