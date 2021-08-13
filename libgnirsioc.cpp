@@ -723,7 +723,7 @@ int controllerInterface::biasMed() {
 int controllerInterface::biasHigh() {
 
 	std::cout << "Well Depth set to -3.6 \n";
-
+   
 	currentBias = HIGH;
 	if (gCont->getDev()->Command( TIM_ID, SBL ) != DON) {   ///NOTE: bias labels are backwards SBL is deep well
 		throw std::runtime_error("Set bias voltage");
