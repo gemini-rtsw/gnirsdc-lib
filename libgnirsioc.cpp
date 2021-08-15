@@ -459,7 +459,13 @@ std::cout << "[ " << dev->GetPixelCount() << "]" << i << std::endl;
 		std::cout << "---------- Reading out Fowler sample: " << i + 1 << " ----------------" << std::endl;
 
 std::cout << "[ " << dev->GetPixelCount() << "]" << i << std::endl;
-		while (dev->GetPixelCount() < pixelsToReadPerFrame && !isAbort) {
+
+		// wait until we read all data before moving on
+		// check that we read enough data and that we haven't rolled off the end and started the next frame
+		int currentPixelCount = lastPixelCount = dev->GetPixelCount();
+		while (currentPixelCount < pixelsToReadPerFrame && currentPixelCount >= lastPixelCount && !isAbort) {
+			lastPixelCount = currentPixelCount; 
+			currentPixelCount = dev->GetPixelCount();
 		}
 std::cout << "[ " << dev->GetPixelCount() << "]" << i << std::endl;
 
