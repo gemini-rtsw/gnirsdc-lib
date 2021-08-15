@@ -38,6 +38,7 @@ public:
         std::mutex busyMutex;
 
 	Config mode{"", "/gem_test/gnirsdc/lib/DSP/AladdinII_SDSU_Firmware.lod", 512, 2048, 1, 1, 0.0, 'M', 1};
+	std::string version();
 
 
 private:

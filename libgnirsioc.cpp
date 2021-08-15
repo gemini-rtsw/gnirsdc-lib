@@ -18,6 +18,7 @@
 #include <execinfo.h>
 #include <signal.h>
 
+#include "version.h"
 #include "libgnirsioc.h"
 
 #define SFS			0x00534653	// Send number of Fowler Samples
@@ -52,6 +53,9 @@ static constexpr int MAX_FS = 256;
 static constexpr int MAX_ADCS = 256; 
 static constexpr int ROWS_PER_FRAME = 512;
 static constexpr int COLS_PER_FRAME = 2048; // Twice the usual max
+
+static constexpr double singleReadoutTime = 0.238241778;
+static constexpr double singleADCTime = 0.1;
 
 static constexpr unsigned rowsPerTransfer = 64;
 static constexpr unsigned lagBy = 1;
@@ -329,7 +333,7 @@ void DataCollector::data_save() const
 {
 	std::ofstream fs(path);
 	fs.write((const char *)buffer, buffSize * sizeof(Pixel));
-	std::cerr << "aved buffer to file " << fileName << '\n';
+	std::cerr << "saved buffer to file " << fileName << '\n';
 }
 
 struct Transfer {
@@ -365,15 +369,15 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 		throw std::runtime_error("Set analog digital samples failed");
 	}
 
-	const unsigned pixelsPerFrame = dRows * dCols;
-	/*const*/ unsigned totalCount = pixelsPerFrame * (nFrames * 2);
-	const unsigned pixelsPerTransfer = dCols * rowsPerTransfer; // Copy 4 rows at a time
-	int frameIndex = 0;
-	unsigned pixelCount = 0;
-	int latestPixelCount = 0;
-	unsigned pixelsCopied = 0;
-	unsigned rowsCopiedThisFrame = 0;
-	unsigned pixelsCopiedThisFrame = 0;
+//	const unsigned pixelsPerFrame = dRows * dCols;
+	/*const*/ //unsigned totalCount = pixelsPerFrame * (nFrames * 2);
+//	const unsigned pixelsPerTransfer = dCols * rowsPerTransfer; // Copy 4 rows at a time
+//	unsigned int frameIndex = 0;
+//	unsigned pixelCount = 0;
+//	int latestPixelCount = 0;
+//	unsigned pixelsCopied = 0;
+//	unsigned rowsCopiedThisFrame = 0;
+//	unsigned pixelsCopiedThisFrame = 0;
 	unsigned long long loops = 0;
 	std::vector<std::thread *>threads;
 
@@ -394,7 +398,7 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 	json_object_object_add(pdu, "NDAVGS", json_object_new_int(nADCs));
 	json_object_object_add(pdu, "RAW_COLS", json_object_new_int(dCols));
 	json_object_object_add(pdu, "RAW_ROWS", json_object_new_int(dRows * nFrames * 2));
-	json_object_object_add(pdu, "EXPTIME", json_object_new_double(expTime));
+	json_object_object_add(pdu, "DLYTIME", json_object_new_double(expTime));
 	json_set_gmdate(pdu, "DATEOBS");
 
 
@@ -404,26 +408,78 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 		json_object_array_add(samples, json_object_new_string(collectors[i]->getFileName().c_str()));
 	}
 
-	DataCollector *currentCollector = collectors[frameIndex];
+//	DataCollector *currentCollector = collectors[frameIndex];
 	std::queue<Transfer> transfers;
 
 	// Create the clock object just before starting the exposure (this will set the reference)
 	Clock clock;
+	clock.set_timing_prefix("RESET_");
+	clock.set_timing_index(0);
+	clock.add_measurement(steady_clock::now());
+
 	// Start the exposure
 	if (dev->Command( TIM_ID, SEX ) != DON) {
 		throw std::runtime_error("Starting exposure failed");
 	}
-	auto ut_start = steady_clock::now();
-	bool waiting_for_signal = false;
-	bool reading_reset = true;
-	clock.set_timing_prefix("RESET_");
-	clock.set_timing_index(1);
 
+
+	auto ut_start = steady_clock::now();
+//	bool first_signal_readout = false;
+//	bool reading_reset = true;
 
 	std::cout << "ARC controller readout and exposure started\n";
 
 	isAbort = false;
 
+	int pixelsToReadPerFrame = dRows * dCols;
+	if (gIsAladdinIII) 
+		pixelsToReadPerFrame = (dRows + 1) * dCols;
+
+	int lastPixelCount = 0;
+	long totalPixelCount = 0;
+	unsigned int i = 0;	
+	while (i < nFrames * 2 && !isAbort) {
+
+		std::cout << "Waiting for next readout to start last count: " << lastPixelCount << " pixels read: " << dev->GetPixelCount() << "\n";
+		if (i == nFrames) std::cout << "Exposing\n";
+
+std::cout << "[ " << dev->GetPixelCount() << "]" << i << std::endl;
+		while (lastPixelCount >= dev->GetPixelCount() && !isAbort) {
+			lastPixelCount = dev->GetPixelCount();
+		}
+std::cout << "[ " << dev->GetPixelCount() << "]" << i << std::endl;
+
+		if (i == nFrames) {
+			clock.set_timing_prefix("SIGNAL_");
+			clock.set_timing_index(0);
+			clock.add_measurement(steady_clock::now());
+		}
+			
+		
+		std::cout << "---------- Reading out Fowler sample: " << i + 1 << " ----------------" << std::endl;
+
+std::cout << "[ " << dev->GetPixelCount() << "]" << i << std::endl;
+		while (dev->GetPixelCount() < pixelsToReadPerFrame && !isAbort) {
+		}
+std::cout << "[ " << dev->GetPixelCount() << "]" << i << std::endl;
+
+		clock.add_measurement(steady_clock::now());
+
+
+		std::cout << "Readout: " << i << " complete\n";
+
+		collectors[i]->update(pixelsToReadPerFrame);
+		threads.push_back(new std::thread(&DataCollector::data_save, collectors[i]));
+
+		lastPixelCount = pixelsToReadPerFrame;
+		totalPixelCount += pixelsToReadPerFrame;
+
+		std::cout << "Total pixels read: "  << totalPixelCount << std::endl;
+		i++;
+	}
+
+
+#if 0
 	while ( (pixelsCopied < totalCount) & !isAbort) {
 		if (pixelCount < totalCount) {
 			int pixelRead = dev->GetPixelCount();
@@ -431,20 +487,50 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 
 
 			if (diff != 0) {
-				if (waiting_for_signal && (pixelRead > 0)) {
+/*				if (waiting_for_signal && (pixelRead > 0)) {
 					clock.add_measurement(steady_clock::now());
 					waiting_for_signal = false;
+				}*/
+				// time first signal readout 
+				if (first_signal_readout && (pixelRead > 0)) {
+					clock.add_measurement(steady_clock::now());
+					first_signal_readout = false;
 				}
+
+
+				 //start of each new readout
 				if (diff < 0) {
 					diff = (pixelsPerFrame - latestPixelCount) + pixelRead;
+                                        clock.add_measurement(steady_clock::now());
 				}
+
+//				if (pixelCount % dRows > (pixelCount + diff) % dRows) {
+//					clock.add_measurement(steady_clock::now());
+//				}
+
 				pixelCount += diff;
 				latestPixelCount = pixelRead;
+
+				if (diff != 0) {
+					// last reset readout
+					if (pixelCount == ((dRows+1)* dCols * nFrames)) {
+						clock.add_measurement(steady_clock::now());
+						clock.set_timing_prefix("SIGNAL_");
+						clock.set_timing_index(0);
+					}
+
+					// last signal readout
+					if (pixelCount == ((dRows+1) * dCols * nFrames) * 2) {
+						clock.add_measurement(steady_clock::now());
+					}
+				}
+			
 			}
 		}
 
+		
+
 		if ((pixelCount - pixelsCopied) >= pixelsPerTransfer) {
-std::cout << "3";
 			transfers.push({currentCollector, pixelsPerTransfer});
 			if (transfers.size() > lagBy) {
 				Transfer t(transfers.front());
@@ -461,21 +547,29 @@ std::cout << "3";
 			pixelsCopied += pixelsPerTransfer;
 
 
-			if (rowsCopiedThisFrame >= dRows) {
-std::cout << "4";
-				clock.add_measurement(steady_clock::now());
+			if (rowsCopiedThisFrame >= dRows + 1) {
+//				clock.add_measurement(steady_clock::now());
 
-				if (reading_reset && (clock.timing_index() > nFrames)) {
-std::cout << "5";
+				frameIndex++;
+	/*			
+				if (frameIndex == nFrames) {
+					first_signal_readout = true;
+					clock.set_timing_prefix("SIGNAL_");
+					clock.set_timing_index(0);
+				}
+*/
+
+
+/*				if (reading_reset && (clock.timing_index() > nFrames)) {
 					reading_reset = false;
 					waiting_for_signal = true;
 					clock.set_timing_prefix("SIGNAL_");
 					clock.set_timing_index(0);
 				}
-
+*/
 //	 		cont->save_to(basename + std::to_string(frameIndex) + ".fits");
 
-				frameIndex++;
+//				frameIndex++;
 				currentCollector = collectors[frameIndex];
 				rowsCopiedThisFrame = 0;
 				pixelsCopiedThisFrame = 0;
@@ -484,9 +578,10 @@ std::cout << "5";
 
 		loops++;
 	}
-	auto ut_end = steady_clock::now();
+
+
+
 	while (transfers.size() > 0 && !isAbort) {
-std::cout << "6";
 		Transfer t(transfers.front());
 		transfers.pop();
 		t.collector->update(t.count);
@@ -495,8 +590,11 @@ std::cout << "6";
 			threads.push_back(new std::thread(&DataCollector::data_save, t.collector));
 		}
 	}
+#endif
 
-//	dev->StopExposure();
+
+	auto ut_end = steady_clock::now();
+
 	std::cerr << "Total loops = " << loops << '\n';
 	std::cerr << "Joining threads\n";
 	for (auto t: threads) {
@@ -507,10 +605,15 @@ std::cout << "6";
 	clock.json_set_gmtime(pdu, "UTSTART", ut_start);
 	clock.json_set_gmtime(pdu, "UTEND", ut_end);
 
+//	auto realExpTime = std::chrono::duration_cast<seconds>(ut_end - ut_start); 
+	std::chrono::duration<double> realExpTime = ut_end - ut_start;
+
+	
+	json_object_object_add(pdu, "EXPTIME", json_object_new_double(realExpTime.count() - singleReadoutTime - singleADCTime * nADCs));
+
 	auto add_measurements = [timing](std::string label, double diff) { json_object_object_add(timing, label.c_str(), json_object_new_double(diff)); };
 
 	clock.visit_measurements(add_measurements);
-
 
 
 	processHeader(temperature, pdu);//bias_voltage, p_mode);
@@ -668,6 +771,10 @@ controllerInterface::~controllerInterface() {
 	delete gCont;
 }
 
+std::string controllerInterface::version() {
+	return GIT_COMMIT;
+}
+
 void controllerInterface::setAladdinIII(bool isAladdinIII) {
 
 	if (isAladdinIII) {
@@ -698,7 +805,7 @@ int controllerInterface::init() {
 
 int controllerInterface::biasLow() {
 
-	std::cout << "Well Depth set to -3.2 \n";
+	std::cout << "Well Depth set to -3.6 \n";
 
 	currentBias = LOW;
 	if (gCont->getDev()->Command( TIM_ID, SBH ) != DON) { ///NOTE: bias labels are backwards SBH is shallow well
@@ -722,7 +829,7 @@ int controllerInterface::biasMed() {
 
 int controllerInterface::biasHigh() {
 
-	std::cout << "Well Depth set to -3.6 \n";
+	std::cout << "Well Depth set to -3.2 \n";
    
 	currentBias = HIGH;
 	if (gCont->getDev()->Command( TIM_ID, SBL ) != DON) {   ///NOTE: bias labels are backwards SBL is deep well
@@ -820,13 +927,19 @@ void controllerInterface::exposeFunct() {
 }
 
 int controllerInterface::expose() {
-	
-	if (gIsAladdinIII) {
-		gCont->set_size(mode.nrows + 1, mode.ncols);
+	try {	
+		if (gIsAladdinIII) {
+			gCont->set_size(mode.nrows + 1, mode.ncols);
+		}
+		else {
+			gCont->set_size(mode.nrows, mode.ncols);
+		};
 	}
-	else {
-		gCont->set_size(mode.nrows, mode.ncols);
-	};
+	catch (std::runtime_error& error) {
+		std::cout << "Error: " << error.what() << std::endl;
+		std::cout << "ARC currently reading out. Exiting this exposure. \n";
+		return -1;	
+	}	
 
 	if (debug) {
 		std::cout << "Testing for mode: " << mode.label << '\n';
@@ -849,13 +962,14 @@ int controllerInterface::expose() {
 		
 			double biasVolts = 0;	
 			switch (this->currentBias) {
-				case LOW: biasVolts = -3.2;break;
+				case LOW: biasVolts = -3.6;break;
 				case MEDIUM: biasVolts = -3.4;break;
-				case HIGH: biasVolts = -3.6;break;
+				case HIGH: biasVolts = -3.2;break;
 			}
-                        json_object_object_add(pdu, "VDET", json_object_new_double(biasVolts));
-                        json_object_object_add(pdu, "VDDUC", json_object_new_double(-4.0));
+             //           json_object_object_add(pdu, "VDET", json_object_new_double(biasVolts));
+              //          json_object_object_add(pdu, "VDDUC", json_object_new_double(-4.0));
                         json_object_object_add(pdu, "DETBIAS", json_object_new_double(-4.0 - biasVolts));
+                        json_object_object_add(pdu, "DCVER", json_object_new_string(GIT_COMMIT));
 
 			if (this->include_raw)
 	                        json_object_object_add(pdu, "P_MODE", json_object_new_string("SEP"));
