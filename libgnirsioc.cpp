@@ -174,11 +174,16 @@ public:
 		}
 	}
 
+	double getMeasurementDelta(std::string prefix, int index) {
+		return double((measurements[prefix + left_justify(to_string(index), 2, '0')] - sty_clock_ref).count()) / 1000000000;
+	}
+
 private:
+	std::map<std::string, sty_time_point> measurements;
+
 	sys_time_point sys_clock_ref;
 	sty_time_point sty_clock_ref;
 
-	std::map<std::string, sty_time_point> measurements;
 
 	std::string t_prefix;
 	unsigned t_index;
@@ -612,14 +617,20 @@ std::cout << "[ " << dev->GetPixelCount() << "]" << i << std::endl;
 	clock.json_set_gmtime(pdu, "UTEND", ut_end);
 
 //	auto realExpTime = std::chrono::duration_cast<seconds>(ut_end - ut_start); 
-	std::chrono::duration<double> realExpTime = ut_end - ut_start;
-
-	
-	json_object_object_add(pdu, "EXPTIME", json_object_new_double(realExpTime.count() - singleReadoutTime - singleADCTime * nADCs));
+//	std::chrono::duration<double> realExpTime = ut_end - ut_start;
 
 	auto add_measurements = [timing](std::string label, double diff) { json_object_object_add(timing, label.c_str(), json_object_new_double(diff)); };
 
 	clock.visit_measurements(add_measurements);
+
+	double aveExposure=0;
+
+	for (unsigned int i = 0; i < nFrames; i++ ) {
+		aveExposure += clock.getMeasurementDelta("SIGNAL_", i) - clock.getMeasurementDelta("RESET_", i);
+	}
+	aveExposure /= nFrames;
+
+	json_object_object_add(pdu, "EXPTIME", json_object_new_double(aveExposure));
 
 
 	processHeader(temperature, pdu);//bias_voltage, p_mode);
