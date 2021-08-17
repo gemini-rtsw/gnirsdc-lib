@@ -418,9 +418,6 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 
 	// Create the clock object just before starting the exposure (this will set the reference)
 	Clock clock;
-	clock.set_timing_prefix("RESET_");
-	clock.set_timing_index(0);
-	clock.add_measurement(steady_clock::now());
 
 	// Start the exposure
 	if (dev->Command( TIM_ID, SEX ) != DON) {
@@ -440,6 +437,7 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 	if (gIsAladdinIII) 
 		pixelsToReadPerFrame = (dRows + 1) * dCols;
 
+
 	int lastPixelCount = 0;
 	long totalPixelCount = 0;
 	unsigned int i = 0;	
@@ -454,7 +452,12 @@ std::cout << "[ " << dev->GetPixelCount() << "]" << i << std::endl;
 		}
 std::cout << "[ " << dev->GetPixelCount() << "]" << i << std::endl;
 
-		if (i == nFrames) {
+		if (i == 0) {
+			clock.set_timing_prefix("RESET_");
+			clock.set_timing_index(0);
+			clock.add_measurement(steady_clock::now());
+		}
+		else if (i == nFrames) {
 			clock.set_timing_prefix("SIGNAL_");
 			clock.set_timing_index(0);
 			clock.add_measurement(steady_clock::now());
