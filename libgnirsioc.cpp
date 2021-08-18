@@ -304,8 +304,8 @@ private:
 	unsigned nADCs;
 
 	double getExposureDelay(double requestedExpTime) {
-		std::cout << "req: " << requestedExpTime << " -  " <<  ((0.0238725 + 0.2140649 * nADCs) * nFrames + 0.0008) << " = " << requestedExpTime - ((0.0238725 + 0.2140649 * nADCs) * nFrames + 0.0008) << std::endl;
-		return std::max((double)0, requestedExpTime - ((0.0238725 + 0.2140649 * nADCs) * nFrames + 0.0008));
+		std::cout << "req: " << requestedExpTime << " -  " <<  (0.0238725 + 0.2140649 * nADCs) * nFrames + 0.0008 << " = " << requestedExpTime - (0.0238725 + 0.2140649 * nADCs) * nFrames + 0.0008 << std::endl;
+		return std::max((double)0, requestedExpTime - (0.0238725 + 0.2140649 * nADCs) * nFrames + 0.0008);
 	}
 };
 
