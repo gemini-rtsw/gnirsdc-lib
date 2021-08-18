@@ -302,6 +302,11 @@ private:
 	unsigned dCols;
 	unsigned nFrames;
 	unsigned nADCs;
+
+	double getExposureDelay(double requestedExpTime) {
+		std::cout << "req: " << requestedExpTime << " -  " <<  ((0.0238725 + 0.2140649 * nADCs) * nFrames + 0.0008) << " = " << requestedExpTime - ((0.0238725 + 0.2140649 * nADCs) * nFrames + 0.0008) << std::endl;
+		return std::max((double)0, requestedExpTime - ((0.0238725 + 0.2140649 * nADCs) * nFrames + 0.0008));
+	}
 };
 
 
@@ -358,7 +363,7 @@ Camera::abort() {
 void
 Camera::expose(Controller* cont, float expTime, std::string basepath, std::string basename, CExpIFace* exp_iface, std::function<void(json_object* obj1, json_object* obj2)> processHeader)
 {
-	int msec = int( expTime * 1000 );
+	int msec = int( getExposureDelay(expTime) * 1000 );
 //	ExposurePhase status = ExposurePhase::FIRST_READOUT;
 
 	// Setting the exposure time

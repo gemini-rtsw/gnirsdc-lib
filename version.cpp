@@ -1,3 +1,3 @@
 #include "version.h"
 
-char const *const GIT_COMMIT = "v20210812-4-g8157d26";
+char const *const GIT_COMMIT = "v20210812-5-g45872ea";
