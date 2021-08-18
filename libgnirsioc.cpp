@@ -246,7 +246,7 @@ public:
 
 		std::memcpy(buffNow, &origBuffer[currentOffset], count * sizeof(Pixel));
 
-		std::cout << "Copied DMA block\n";
+//		std::cout << "Copied DMA block\n";
 
 		currentOffset += count;
 
@@ -257,7 +257,7 @@ public:
 
         inline void copyRow513(size_t cols)
         {
-		std::cout << "Aladdin III copied DMA extra row 513\n";
+//		std::cout << "Aladdin III copied DMA extra row 513\n";
 
 
 		Pixel *buff512 = &buffer[currentOffset - cols]; //row 512 (last row) in new buffer
@@ -374,15 +374,6 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 		throw std::runtime_error("Set analog digital samples failed");
 	}
 
-//	const unsigned pixelsPerFrame = dRows * dCols;
-	/*const*/ //unsigned totalCount = pixelsPerFrame * (nFrames * 2);
-//	const unsigned pixelsPerTransfer = dCols * rowsPerTransfer; // Copy 4 rows at a time
-//	unsigned int frameIndex = 0;
-//	unsigned pixelCount = 0;
-//	int latestPixelCount = 0;
-//	unsigned pixelsCopied = 0;
-//	unsigned rowsCopiedThisFrame = 0;
-//	unsigned pixelsCopiedThisFrame = 0;
 	unsigned long long loops = 0;
 	std::vector<std::thread *>threads;
 
@@ -413,7 +404,6 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 		json_object_array_add(samples, json_object_new_string(collectors[i]->getFileName().c_str()));
 	}
 
-//	DataCollector *currentCollector = collectors[frameIndex];
 	std::queue<Transfer> transfers;
 
 	// Create the clock object just before starting the exposure (this will set the reference)
@@ -426,8 +416,6 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 
 
 	auto ut_start = steady_clock::now();
-//	bool first_signal_readout = false;
-//	bool reading_reset = true;
 
 	std::cout << "ARC controller readout and exposure started\n";
 
@@ -443,14 +431,14 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 	unsigned int i = 0;	
 	while (i < nFrames * 2 && !isAbort) {
 
-		std::cout << "Waiting for next readout to start last count: " << lastPixelCount << " pixels read: " << dev->GetPixelCount() << "\n";
-		if (i == nFrames) std::cout << "Exposing\n";
+	//	std::cout << "Waiting for next readout to start last count: " << lastPixelCount << " pixels read: " << dev->GetPixelCount() << "\n";
+	//	if (i == nFrames) std::cout << "Exposing\n";
 
-std::cout << "[ " << dev->GetPixelCount() << "]" << i << std::endl;
+//std::cout << "[ " << dev->GetPixelCount() << "]" << i << std::endl;
 		while (lastPixelCount >= dev->GetPixelCount() && !isAbort) {
 			lastPixelCount = dev->GetPixelCount();
 		}
-std::cout << "[ " << dev->GetPixelCount() << "]" << i << std::endl;
+//std::cout << "[ " << dev->GetPixelCount() << "]" << i << std::endl;
 
 		if (i == 0) {
 			clock.set_timing_prefix("RESET_");
@@ -464,9 +452,9 @@ std::cout << "[ " << dev->GetPixelCount() << "]" << i << std::endl;
 		}
 			
 		
-		std::cout << "---------- Reading out Fowler sample: " << i + 1 << " ----------------" << std::endl;
+//		std::cout << "---------- Reading out Fowler sample: " << i + 1 << " ----------------" << std::endl;
 
-std::cout << "[ " << dev->GetPixelCount() << "]" << i << std::endl;
+//std::cout << "[ " << dev->GetPixelCount() << "]" << i << std::endl;
 
 		// wait until we read all data before moving on
 		// check that we read enough data and that we haven't rolled off the end and started the next frame
@@ -475,12 +463,12 @@ std::cout << "[ " << dev->GetPixelCount() << "]" << i << std::endl;
 			lastPixelCount = currentPixelCount; 
 			currentPixelCount = dev->GetPixelCount();
 		}
-std::cout << "[ " << dev->GetPixelCount() << "]" << i << std::endl;
+//std::cout << "[ " << dev->GetPixelCount() << "]" << i << std::endl;
 
 		clock.add_measurement(steady_clock::now());
 
 
-		std::cout << "Readout: " << i << " complete\n";
+//		std::cout << "Readout: " << i << " complete\n";
 
 		collectors[i]->update(pixelsToReadPerFrame);
 		threads.push_back(new std::thread(&DataCollector::data_save, collectors[i]));
@@ -488,123 +476,9 @@ std::cout << "[ " << dev->GetPixelCount() << "]" << i << std::endl;
 		lastPixelCount = pixelsToReadPerFrame;
 		totalPixelCount += pixelsToReadPerFrame;
 
-		std::cout << "Total pixels read: "  << totalPixelCount << std::endl;
+//		std::cout << "Total pixels read: "  << totalPixelCount << std::endl;
 		i++;
 	}
-
-
-#if 0
-	while ( (pixelsCopied < totalCount) & !isAbort) {
-		if (pixelCount < totalCount) {
-			int pixelRead = dev->GetPixelCount();
-			int diff = pixelRead - latestPixelCount;
-
-
-			if (diff != 0) {
-/*				if (waiting_for_signal && (pixelRead > 0)) {
-					clock.add_measurement(steady_clock::now());
-					waiting_for_signal = false;
-				}*/
-				// time first signal readout 
-				if (first_signal_readout && (pixelRead > 0)) {
-					clock.add_measurement(steady_clock::now());
-					first_signal_readout = false;
-				}
-
-
-				 //start of each new readout
-				if (diff < 0) {
-					diff = (pixelsPerFrame - latestPixelCount) + pixelRead;
-                                        clock.add_measurement(steady_clock::now());
-				}
-
-//				if (pixelCount % dRows > (pixelCount + diff) % dRows) {
-//					clock.add_measurement(steady_clock::now());
-//				}
-
-				pixelCount += diff;
-				latestPixelCount = pixelRead;
-
-				if (diff != 0) {
-					// last reset readout
-					if (pixelCount == ((dRows+1)* dCols * nFrames)) {
-						clock.add_measurement(steady_clock::now());
-						clock.set_timing_prefix("SIGNAL_");
-						clock.set_timing_index(0);
-					}
-
-					// last signal readout
-					if (pixelCount == ((dRows+1) * dCols * nFrames) * 2) {
-						clock.add_measurement(steady_clock::now());
-					}
-				}
-			
-			}
-		}
-
-		
-
-		if ((pixelCount - pixelsCopied) >= pixelsPerTransfer) {
-			transfers.push({currentCollector, pixelsPerTransfer});
-			if (transfers.size() > lagBy) {
-				Transfer t(transfers.front());
-				transfers.pop();
-				t.collector->update(t.count);
-				if (t.collector->full()) {
-					std::cout << "Readout DMA copy complete\n";
-					threads.push_back(new std::thread(&DataCollector::data_save, t.collector));
-				}
-			}
-
-			rowsCopiedThisFrame += rowsPerTransfer;
-			pixelsCopiedThisFrame += pixelsPerTransfer;
-			pixelsCopied += pixelsPerTransfer;
-
-
-			if (rowsCopiedThisFrame >= dRows + 1) {
-//				clock.add_measurement(steady_clock::now());
-
-				frameIndex++;
-	/*			
-				if (frameIndex == nFrames) {
-					first_signal_readout = true;
-					clock.set_timing_prefix("SIGNAL_");
-					clock.set_timing_index(0);
-				}
-*/
-
-
-/*				if (reading_reset && (clock.timing_index() > nFrames)) {
-					reading_reset = false;
-					waiting_for_signal = true;
-					clock.set_timing_prefix("SIGNAL_");
-					clock.set_timing_index(0);
-				}
-*/
-//	 		cont->save_to(basename + std::to_string(frameIndex) + ".fits");
-
-//				frameIndex++;
-				currentCollector = collectors[frameIndex];
-				rowsCopiedThisFrame = 0;
-				pixelsCopiedThisFrame = 0;
-			}
-		}
-
-		loops++;
-	}
-
-
-
-	while (transfers.size() > 0 && !isAbort) {
-		Transfer t(transfers.front());
-		transfers.pop();
-		t.collector->update(t.count);
-		if (t.collector->full()) {
-			std::cout << "Readout DMA copy complete\n";
-			threads.push_back(new std::thread(&DataCollector::data_save, t.collector));
-		}
-	}
-#endif
 
 
 	auto ut_end = steady_clock::now();
