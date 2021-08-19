@@ -178,6 +178,10 @@ public:
 		return double((measurements[prefix + left_justify(to_string(index), 2, '0')] - sty_clock_ref).count()) / 1000000000;
 	}
 
+	sty_time_point getMeasurementTime(std::string prefix, int index) {
+		return measurements[prefix + left_justify(to_string(index), 2, '0')];
+	}
+
 private:
 	std::map<std::string, sty_time_point> measurements;
 
@@ -304,7 +308,7 @@ private:
 	unsigned nFrames;
 	unsigned nADCs;
 
-	double getExposureOverhead(int fowlers, int ADCs) {
+	double getExposureOverhead(double fowlers, double  ADCs) {
 		return (0.0238725 + 0.2140649 * ADCs) * fowlers + 0.0008;
 	}		
 
@@ -312,9 +316,9 @@ private:
 		std::cout << "old: " << requestedExpTime << " -  " <<  getExposureOverhead(nFrames, nADCs) << " = " << requestedExpTime - getExposureOverhead(nFrames, nADCs) << std::endl;
 		std::cout << "new: " << requestedExpTime << " -  " <<  (0.2140525 * nFrames * nADCs + 0.023907  * nFrames + 0.0006865 * nADCs + 0.0028295) << " = " << requestedExpTime - (0.2140525 * nFrames * nADCs + 0.023907  * nFrames + 0.0006865 * nADCs + 0.0028295) << std::endl;
 
-		return std::max((double)0, requestedExpTime - getExposureOverhead(nFrames, nADCs));
+//		return std::max((double)0, requestedExpTime - getExposureOverhead(nFrames, nADCs));//doesn;t get the same time with this function???
 
-		//return std::max((double)0, requestedExpTime - (0.0238725 + 0.2140649 * nADCs) * nFrames + 0.0008);
+		return std::max((double)0, requestedExpTime - (0.0238725 + 0.2140649 * nADCs) * nFrames + 0.0008);
 		//return std::max((double)0, requestedExpTime - (0.2140525 * nFrames * nADCs + 0.023907  * nFrames + 0.0006865 * nADCs + 0.0028295));
 	}
 };
@@ -429,7 +433,7 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 	}
 
 
-	auto ut_start = steady_clock::now();
+//	auto ut_start = steady_clock::now();
 
 	std::cout << "ARC controller readout and exposure started\n";
 
@@ -495,7 +499,7 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 	}
 
 
-	auto ut_end = steady_clock::now();
+//	auto ut_end = steady_clock::now();
 
 	std::cerr << "Total loops = " << loops << '\n';
 	std::cerr << "Joining threads\n";
@@ -504,7 +508,10 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 		delete t;
 	}
 	std::cerr << "Writing header\n";
-	clock.json_set_gmtime(pdu, "UTSTART", ut_start);
+
+	auto ut_start = clock.getMeasurementTime("RESET_", 0);
+	auto ut_end = clock.getMeasurementTime("SIGNAL_", nFrames);
+	clock.json_set_gmtime(pdu, "UTSTART", ut_start); 
 	clock.json_set_gmtime(pdu, "UTEND", ut_end);
 
 //	auto realExpTime = std::chrono::duration_cast<seconds>(ut_end - ut_start); 
@@ -524,7 +531,7 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 
 	json_object_object_add(pdu, "EXPTIME", json_object_new_double(aveExposure));
 	json_object_object_add(pdu, "EXPREQ", json_object_new_double(expTime));
-	json_object_object_add(pdu, "MIN_INT", json_object_new_double(getExposureOverhead(1, 1)));
+	json_object_object_add(pdu, "MIN_INT", json_object_new_double((0.0238725 + 0.2140649 * nADCs) * nFrames + 0.0008));//getExposureOverhead(1, 1))); //function doesn't match time
 
 
 	processHeader(temperature, pdu);//bias_voltage, p_mode);
