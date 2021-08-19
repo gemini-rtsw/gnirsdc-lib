@@ -288,6 +288,7 @@ private:
 	std::string fileName;
 };
 
+
 class Camera {
 public:
 	Camera(CArcDevice *pDevice, const Config &mode);
@@ -303,9 +304,18 @@ private:
 	unsigned nFrames;
 	unsigned nADCs;
 
+	double getExposureOverhead(int fowlers, int ADCs) {
+		return (0.0238725 + 0.2140649 * ADCs) * fowlers + 0.0008;
+	}		
+
 	double getExposureDelay(double requestedExpTime) {
-		std::cout << "req: " << requestedExpTime << " -  " <<  (0.0238725 + 0.2140649 * nADCs) * nFrames + 0.0008 << " = " << requestedExpTime - (0.0238725 + 0.2140649 * nADCs) * nFrames + 0.0008 << std::endl;
-		return std::max((double)0, requestedExpTime - (0.0238725 + 0.2140649 * nADCs) * nFrames + 0.0008);
+		std::cout << "old: " << requestedExpTime << " -  " <<  getExposureOverhead(nFrames, nADCs) << " = " << requestedExpTime - getExposureOverhead(nFrames, nADCs) << std::endl;
+		std::cout << "new: " << requestedExpTime << " -  " <<  (0.2140525 * nFrames * nADCs + 0.023907  * nFrames + 0.0006865 * nADCs + 0.0028295) << " = " << requestedExpTime - (0.2140525 * nFrames * nADCs + 0.023907  * nFrames + 0.0006865 * nADCs + 0.0028295) << std::endl;
+
+		return std::max((double)0, requestedExpTime - getExposureOverhead(nFrames, nADCs));
+
+		//return std::max((double)0, requestedExpTime - (0.0238725 + 0.2140649 * nADCs) * nFrames + 0.0008);
+		//return std::max((double)0, requestedExpTime - (0.2140525 * nFrames * nADCs + 0.023907  * nFrames + 0.0006865 * nADCs + 0.0028295));
 	}
 };
 
@@ -395,11 +405,10 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 
 	json_object_object_add(pdu, "CAMERA", json_object_new_string("GNIRS"));
 	json_set_datalabel(pdu, "test-image", nFrames, nADCs);
-	json_object_object_add(pdu, "LRNS", json_object_new_int(nFrames));
+	json_object_object_add(pdu, "LNRS", json_object_new_int(nFrames));
 	json_object_object_add(pdu, "NDAVGS", json_object_new_int(nADCs));
 	json_object_object_add(pdu, "RAW_COLS", json_object_new_int(dCols));
 	json_object_object_add(pdu, "RAW_ROWS", json_object_new_int(dRows * nFrames * 2));
-	json_object_object_add(pdu, "DLYTIME", json_object_new_double(expTime));
 	json_set_gmdate(pdu, "DATEOBS");
 
 
@@ -507,12 +516,15 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 
 	double aveExposure=0;
 
-	for (unsigned int i = 0; i < nFrames; i++ ) {
+	// sum exposure times at the time the last pixel of a readout is recieved
+	for (unsigned int i = 1; i <= nFrames; i++ ) {
 		aveExposure += clock.getMeasurementDelta("SIGNAL_", i) - clock.getMeasurementDelta("RESET_", i);
 	}
 	aveExposure /= nFrames;
 
 	json_object_object_add(pdu, "EXPTIME", json_object_new_double(aveExposure));
+	json_object_object_add(pdu, "EXPREQ", json_object_new_double(expTime));
+	json_object_object_add(pdu, "MIN_INT", json_object_new_double(getExposureOverhead(1, 1)));
 
 
 	processHeader(temperature, pdu);//bias_voltage, p_mode);
