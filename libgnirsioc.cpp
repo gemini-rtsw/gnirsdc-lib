@@ -292,6 +292,8 @@ private:
 	std::string fileName;
 };
 
+#define cExpConst1 0.023850195
+#define cExpConst2 0.214065865
 
 class Camera {
 public:
@@ -309,17 +311,13 @@ private:
 	unsigned nADCs;
 
 	double getExposureOverhead(double fowlers, double  ADCs) {
-		return (0.0238725 + 0.2140649 * ADCs) * fowlers + 0.0008;
+		return (cExpConst1 + cExpConst2 * ADCs) * fowlers;
 	}		
 
 	double getExposureDelay(double requestedExpTime) {
-		std::cout << "old: " << requestedExpTime << " -  " <<  getExposureOverhead(nFrames, nADCs) << " = " << requestedExpTime - getExposureOverhead(nFrames, nADCs) << std::endl;
-		std::cout << "new: " << requestedExpTime << " -  " <<  (0.2140525 * nFrames * nADCs + 0.023907  * nFrames + 0.0006865 * nADCs + 0.0028295) << " = " << requestedExpTime - (0.2140525 * nFrames * nADCs + 0.023907  * nFrames + 0.0006865 * nADCs + 0.0028295) << std::endl;
+		std::cout << "exp delay: " << requestedExpTime << " -  " <<  (cExpConst2 * nFrames * nADCs + cExpConst1  * nFrames) << " = " << requestedExpTime - (cExpConst2 * nFrames * nADCs + cExpConst1 * nFrames) << std::endl;
 
-//		return std::max((double)0, requestedExpTime - getExposureOverhead(nFrames, nADCs));//doesn;t get the same time with this function???
-
-		return std::max((double)0, requestedExpTime - (0.0238725 + 0.2140649 * nADCs) * nFrames + 0.0008);
-		//return std::max((double)0, requestedExpTime - (0.2140525 * nFrames * nADCs + 0.023907  * nFrames + 0.0006865 * nADCs + 0.0028295));
+		return std::max((double)0, requestedExpTime - (cExpConst1 + cExpConst2 * nADCs) * nFrames);
 	}
 };
 
@@ -531,7 +529,7 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 
 	json_object_object_add(pdu, "EXPTIME", json_object_new_double(aveExposure));
 	json_object_object_add(pdu, "EXPREQ", json_object_new_double(expTime));
-	json_object_object_add(pdu, "MIN_INT", json_object_new_double((0.0238725 + 0.2140649 * nADCs) * nFrames + 0.0008));//getExposureOverhead(1, 1))); //function doesn't match time
+	json_object_object_add(pdu, "MIN_INT", json_object_new_double((cExpConst1 + cExpConst2 * nADCs) * nFrames));//getExposureOverhead(1, 1))); //function doesn't match time
 
 
 	processHeader(temperature, pdu);//bias_voltage, p_mode);
