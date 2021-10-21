@@ -899,12 +899,6 @@ int controllerInterface::expose() {
         for (int i=0; i < mode.sequence; i++) {
 		if (Camera::isAbort) break;
 		camera.expose(gCont, mode.exposure, "/home/readout_data/new/", get_uuid(), &callbacks, processHeader);
-
-		std::cout << "Processing Raw Data\n";
-		if (include_raw)
-			system("proc_data.sh -r");
-		else 
-			system("proc_data.sh");
 	}
 
 	Camera::isAbort = false;
@@ -912,7 +906,6 @@ int controllerInterface::expose() {
 
 	std::cout << "Exposure complete\n";
 
-	system("sequence_complete.sh");
 
 	return 0;
 

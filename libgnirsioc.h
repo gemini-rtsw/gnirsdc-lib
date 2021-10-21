@@ -37,15 +37,15 @@ public:
 
         std::mutex busyMutex;
 
-	Config mode{"", "/gem_test/gnirsdc/lib/DSP/AladdinII_SDSU_Firmware.lod", 512, 2048, 1, 1, 0.0, 'M', 1};
+	Config mode{"", "./DSP/AladdinII_SDSU_Firmware.lod", 512, 2048, 1, 1, 0.0, 'M', 1};
 	std::string version();
 
 
 private:
 	void exposeFunct();
 	int expose();
-	std::string aladdinIIFilename{"/gem_test/gnirsdc/lib/DSP/AladdinII_SDSU_Firmware.lod"};
-	std::string aladdinIIIFilename{"/gem_test/gnirsdc/lib/DSP/AladdinIII_SDSU_Firmware.lod"};
+	std::string aladdinIIFilename{"./DSP/AladdinII_SDSU_Firmware.lod"};
+	std::string aladdinIIIFilename{"./DSP/AladdinIII_SDSU_Firmware.lod"};
 	bool reset;
 	bool debug;
 
