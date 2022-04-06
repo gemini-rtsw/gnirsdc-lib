@@ -21,6 +21,7 @@ install:
 	mkdir ./release
 	install -m 644 libgnirsioc.a ./release/
 	install -m 644 libgnirsioc.h ./release/
+	cp ./release/* ../gem_test/gnirsdc/gnirsDCApp/src/
 
 clean:
 	rm -f $(TARGETS)

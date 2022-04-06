@@ -44,8 +44,8 @@ public:
 private:
 	void exposeFunct();
 	int expose();
-	std::string aladdinIIFilename{"./DSP/AladdinII_SDSU_Firmware.lod"};
-	std::string aladdinIIIFilename{"./DSP/AladdinIII_SDSU_Firmware.lod"};
+	std::string aladdinIIFilename{"../../lib/DSP/AladdinII_SDSU_Firmware.lod"};
+	std::string aladdinIIIFilename{"../../lib/DSP/AladdinIII_SDSU_Firmware.lod"};
 	bool reset;
 	bool debug;
 

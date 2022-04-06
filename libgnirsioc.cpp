@@ -906,7 +906,8 @@ int controllerInterface::expose() {
 
 	std::cout << "Exposure complete\n";
 
-
+        gCont->save_to("/home/hstecher/fits/test.fits");
+	
 	return 0;
 
 }
