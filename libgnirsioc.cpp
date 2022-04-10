@@ -29,6 +29,8 @@
 #define SBV			0x00534256      // set normal bias voltage
 #define SBH			0x00534248      // set high bias voltage
 
+#define SNC 			0x00534E43      // Set number of clockouts
+#define COA 			0x00434F41      // Clock out array 
 #define RAR 			0x00524152      // Reset array 
 #define RRO			0x0052524f      // Reset then readout array 
 #define ROR			0x00524f52      // Reset then readout array 
@@ -800,11 +802,32 @@ void controllerInterface::abortExposure() {
 
 }
 
+void controllerInterface::setNumClockouts(int nClockouts) {
+        if (nClockouts >= 0) {
+        
+        	if (gCont->getDev()->Command( TIM_ID, SNC, nClockouts) != DON) {
+        		throw std::runtime_error("Set number of clockouts failed");
+        	}
+	}
+	else {
+		std::cout << "Number of clockouts must be greater than or equal to 0\n" << std::endl;
+        }
+}
+
+void controllerInterface::clockoutArray() {
+        if (gCont->getDev()->Command( TIM_ID, COA ) != DON) {
+                throw std::runtime_error("Clockout array failed");
+        }
+	std::cout << "Clockout array command sent\n";
+
+}
+
+
 void controllerInterface::resetArray() {
         if (gCont->getDev()->Command( TIM_ID, RAR ) != DON) {
                 throw std::runtime_error("Reset array failed");
         }
-	std::cout << "Reset array command send\n";
+	std::cout << "Reset array command sent\n";
 
 }
 
@@ -812,7 +835,7 @@ void controllerInterface::resetReadArray() {
         if (gCont->getDev()->Command( TIM_ID, RRO ) != DON) {
                 throw std::runtime_error("Reset read array failed");
         }
-	std::cout << "Reset read array command send\n";
+	std::cout << "Reset read array command sent\n";
 
 }
 
@@ -820,7 +843,7 @@ void controllerInterface::readoutArray() {
         if (gCont->getDev()->Command( TIM_ID, ROR ) != DON) {
                 throw std::runtime_error("Readout array failed");
         }
-	std::cout << "Readout array command send\n";
+	std::cout << "Readout array command sent\n";
 
 }
 
@@ -843,7 +866,31 @@ void controllerInterface::exposeFunct() {
 }
 
 int controllerInterface::expose() {
-	try {	
+        std::cout << "Sequence " << mode.sequence << std::endl;
+
+	auto processHeader = [this](json_object* temp, json_object* pdu){//json_object* bias, json_object* pmode){
+
+                        json_object_object_add(temp, "TEMP IN1", json_object_new_double(this->tempIN1));
+                        json_object_object_add(temp, "TEMP IN2", json_object_new_double(this->tempIN2));
+		
+			double biasVolts = 0;	
+			switch (this->currentBias) {
+				case LOW: biasVolts = -3.6;break;
+				case MEDIUM: biasVolts = -3.4;break;
+				case HIGH: biasVolts = -3.2;break;
+			}
+             //           json_object_object_add(pdu, "VDET", json_object_new_double(biasVolts));
+              //          json_object_object_add(pdu, "VDDUC", json_object_new_double(-4.0));
+                        json_object_object_add(pdu, "DETBIAS", json_object_new_double(-4.0 - biasVolts));
+                        json_object_object_add(pdu, "DCVER", json_object_new_string(GIT_COMMIT));
+
+			if (this->include_raw)
+	                        json_object_object_add(pdu, "P_MODE", json_object_new_string("SEP"));
+			else
+	                        json_object_object_add(pdu, "P_MODE", json_object_new_string("STARE"));
+                };
+
+    	try {	
 		if (gIsAladdinIII) {
 			gCont->set_size(mode.nrows + 1, mode.ncols);
 		}
@@ -869,35 +916,19 @@ int controllerInterface::expose() {
 
 	Camera camera(gCont->getDev(), mode);
 
-        std::cout << "Sequence " << mode.sequence << std::endl;
-
-	auto processHeader = [this](json_object* temp, json_object* pdu){//json_object* bias, json_object* pmode){
-
-                        json_object_object_add(temp, "TEMP IN1", json_object_new_double(this->tempIN1));
-                        json_object_object_add(temp, "TEMP IN2", json_object_new_double(this->tempIN2));
-		
-			double biasVolts = 0;	
-			switch (this->currentBias) {
-				case LOW: biasVolts = -3.6;break;
-				case MEDIUM: biasVolts = -3.4;break;
-				case HIGH: biasVolts = -3.2;break;
-			}
-             //           json_object_object_add(pdu, "VDET", json_object_new_double(biasVolts));
-              //          json_object_object_add(pdu, "VDDUC", json_object_new_double(-4.0));
-                        json_object_object_add(pdu, "DETBIAS", json_object_new_double(-4.0 - biasVolts));
-                        json_object_object_add(pdu, "DCVER", json_object_new_string(GIT_COMMIT));
-
-			if (this->include_raw)
-	                        json_object_object_add(pdu, "P_MODE", json_object_new_string("SEP"));
-			else
-	                        json_object_object_add(pdu, "P_MODE", json_object_new_string("STARE"));
-                };
 
 
 	Camera::isAbort = false; //just incase abort is pressed while not in an exposure
 
+        std::cout << "Clock through array to reduce first frame effect" << std::endl;
+
+        clockoutArray();
+
+
         for (int i=0; i < mode.sequence; i++) {
+
 		if (Camera::isAbort) break;
+
 		camera.expose(gCont, mode.exposure, "/home/readout_data/new/", get_uuid(), &callbacks, processHeader);
 	}
 
@@ -906,7 +937,7 @@ int controllerInterface::expose() {
 
 	std::cout << "Exposure complete\n";
 
-        gCont->save_to("/home/hstecher/fits/test.fits");
+//        gCont->save_to("/home/hstecher/fits/test.fits");
 	
 	return 0;
 

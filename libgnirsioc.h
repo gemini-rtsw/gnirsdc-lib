@@ -31,13 +31,15 @@ public:
 	void setAladdinIII(bool isAladdinIII);
         int startExposure(double temp1, double temp2, bool raw);	
 	void abortExposure();
+        void setNumClockouts(int clockouts);
+	void clockoutArray();
 	void resetArray();
 	void resetReadArray();
 	void readoutArray();
 
         std::mutex busyMutex;
 
-	Config mode{"", "./DSP/AladdinII_SDSU_Firmware.lod", 512, 2048, 1, 1, 0.0, 'M', 1};
+	Config mode{"", "../../lib/DSP/AladdinII_SDSU_Firmware.lod", 512, 2048, 1, 1, 0.0, 'M', 1};
 	std::string version();
 
 
