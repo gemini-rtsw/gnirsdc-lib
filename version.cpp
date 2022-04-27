@@ -1,3 +1,3 @@
 #include "version.h"
 
-char const *const GIT_COMMIT = "mko-testing-8-g3cab0c9";
+char const *const GIT_COMMIT = "gnirsDClib-0.0.1-1-0-g6a15c24";
