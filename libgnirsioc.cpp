@@ -11,12 +11,13 @@
 #include <chrono>
 #include <queue>
 #include <vector>
-#include "uuid/uuid.h"
-#include "json.h"
+#include <uuid/uuid.h>
+#include <json-c/json.h>
 #include "libgnirs.h"
 #include <CExpIFace.h>
 #include <execinfo.h>
 #include <signal.h>
+#include <functional>
 
 #include "version.h"
 #include "libgnirsioc.h"

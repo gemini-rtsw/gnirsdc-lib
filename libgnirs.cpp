@@ -114,7 +114,7 @@ Controller::load_lod_file(std::string path)
 	try {
 		pArcDev->LoadControllerFile(path);
 	}
-	catch (std::runtime_error e)
+	catch (std::runtime_error& e)
 	{
 		std::cerr << "Error when loading the file\n";
 		return false;
@@ -136,7 +136,7 @@ Controller::setup_controller(std::string path, bool power_on, bool reset)
 					  path       // Path to the LOD file
 					);
 	}
-	catch (std::runtime_error e)
+	catch (std::runtime_error& e)
 	{
 		std::cerr << "Error when setting up the controller\n";
 		return false;
