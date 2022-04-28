@@ -23,6 +23,10 @@ install:
 	install -m 644 libgnirsioc.h ./release/include/
 	install -m 644 libgnirsioc.a ./release/lib/
 
+uninstall:
+	rm -f $(TARGETS)
+	rm -rf ./release
+
 distclean:
 	rm -f $(TARGETS)
 	rm -rf ./release
