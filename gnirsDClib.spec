@@ -53,6 +53,8 @@ make
 export DONT_STRIP=1
 rm -rf $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT/%{_prefix}/%{name}
+mkdir -p $RPM_BUILD_ROOT/%{_prefix}/%{name}
+mkdir -p $RPM_BUILD_ROOT/%{_prefix}/%{name}
 cp -r release/include $RPM_BUILD_ROOT/%{_prefix}/%{name}/include
 cp -r release/lib $RPM_BUILD_ROOT/%{_prefix}/%{name}/lib
 

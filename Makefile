@@ -5,7 +5,7 @@ CPPFLAGS=-std=c++11 -I./include -I/usr/include/json-c -Wall
 LDFLAGS=-L./lib  -Wl,-rpath=/lib 
 LDLIBS=-lCArcDevice -lCArcDeinterlace -lCArcFitsFile -lcfitsio -ljson-c -luuid -lpthread
 
-TARGETS=libgnirsioc.o libgnirsioc.a version.o libgnirs.o 
+TARGETS=libgnirsioc.o libgnirsioc.a version.o libgnirs.o install
 CPPDEPS=libgnirs.cpp
 HDEPS=libgnirs.h libgnirsioc.h
 
