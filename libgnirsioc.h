@@ -31,13 +31,26 @@ public:
 	void setAladdinIII(bool isAladdinIII);
         int startExposure(double temp1, double temp2, bool raw);	
 	void abortExposure();
+
+
+        void setClockoutAll(bool isAll) {
+		clockoutAll = isAll;
+	}
         void setNumClockouts(int clockouts);
 	void clockoutArray();
+	void continuousClockoutsStart();
+	void continuousClockoutsStop() {
+		clockoutsStop = true;
+	}
+
+
 	void resetArray();
 	void resetReadArray();
 	void readoutArray();
 
         std::mutex busyMutex;
+
+        std::mutex clockoutMutex;
 
 	Config mode{"", "../../lib/DSP/AladdinII_SDSU_Firmware.lod", 512, 2048, 1, 1, 0.0, 'M', 1};
 	std::string version();
@@ -50,6 +63,10 @@ private:
 	std::string aladdinIIIFilename{"../../lib/DSP/AladdinIII_SDSU_Firmware.lod"};
 	bool reset;
 	bool debug;
+
+	void clockoutFunct();
+	bool clockoutAll;
+	bool clockoutsStop;
 
 	BiasLevel currentBias = MEDIUM;
 

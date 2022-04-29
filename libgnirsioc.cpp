@@ -672,6 +672,7 @@ controllerInterface::controllerInterface() : exposureThread(NULL)  {
 
 	reset = false;
 	debug = false;
+	clockoutAll = false;
 
 	//include_raw = false;
 
@@ -823,6 +824,26 @@ void controllerInterface::clockoutArray() {
 
 }
 
+void controllerInterface::continuousClockoutsStart() {
+	clockoutsStop = false;
+
+	new std::thread(&controllerInterface::clockoutFunct, this);
+}
+
+
+void controllerInterface::clockoutFunct() {
+
+	while (!clockoutsStop) {
+		clockoutMutex.lock();
+			
+		std::cout << "Continuous clockout\n";
+	
+		clockoutArray();
+	
+		clockoutMutex.unlock();
+	}
+
+}
 
 void controllerInterface::resetArray() {
         if (gCont->getDev()->Command( TIM_ID, RAR ) != DON) {
@@ -923,15 +944,20 @@ int controllerInterface::expose() {
 
         std::cout << "Clock through array to reduce first frame effect" << std::endl;
 
-        clockoutArray();
-
+	clockoutMutex.lock(); // wait for continuous clockout to stop
 
         for (int i=0; i < mode.sequence; i++) {
 
 		if (Camera::isAbort) break;
 
+                if (clockoutAll || i == 0) {
+			clockoutArray();
+		}
+
 		camera.expose(gCont, mode.exposure, "/home/readout_data/new/", get_uuid(), &callbacks, processHeader);
 	}
+
+	clockoutMutex.unlock();
 
 	Camera::isAbort = false;
 
