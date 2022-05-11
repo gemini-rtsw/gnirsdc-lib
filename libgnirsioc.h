@@ -52,15 +52,15 @@ public:
 
         std::mutex clockoutMutex;
 
-	Config mode{"", "../../lib/DSP/AladdinII_SDSU_Firmware.lod", 512, 2048, 1, 1, 0.0, 'M', 1};
+	Config mode{"", "/gem_base/epics/ioc/gnirsdc-dsp/gnirsdc-firmware/AladdinII_SDSU_Firmware.lod", 512, 2048, 1, 1, 0.0, 'M', 1};
 	std::string version();
 
 
 private:
 	void exposeFunct();
 	int expose();
-	std::string aladdinIIFilename{"../../lib/DSP/AladdinII_SDSU_Firmware.lod"};
-	std::string aladdinIIIFilename{"../../lib/DSP/AladdinIII_SDSU_Firmware.lod"};
+	std::string aladdinIIFilename{"/gem_base/epics/ioc/gnirsdc-dsp/gnirsdc-firmware/laddinII_SDSU_Firmware.lod"};
+	std::string aladdinIIIFilename{"/gem_base/epics/ioc/gnirsdc-dsp/gnirsdc-firmware/AladdinIII_SDSU_Firmware.lod"};
 	bool reset;
 	bool debug;
 

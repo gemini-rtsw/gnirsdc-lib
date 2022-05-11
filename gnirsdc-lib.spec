@@ -27,7 +27,7 @@ ExclusiveArch: %{arch}
 Prefix: %{_prefix}
 ## You may specify dependencies here
 BuildRequires: json-c-devel libuuid-devel 
-Requires: json-c-devel libuuid-devel 
+Requires: json-c-devel libuuid-devel gnirsdc-dsp
 ## Switch dependency checking off
 ## AutoReqProv: no
 
