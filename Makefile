@@ -2,7 +2,7 @@ $(shell echo -e "#include \"version.h\"\n\nchar const *const GIT_COMMIT = \"$$(g
 
 
 CPPFLAGS=-std=c++11 -I./include -I/usr/include/json-c -Wall  
-LDFLAGS=-L./lib  -Wl,-rpath=/lib 
+LDFLAGS=-L./lib  -Wl,-rpath=/lib
 LDLIBS=-lCArcDevice -lCArcDeinterlace -lCArcFitsFile -lcfitsio -ljson-c -luuid -lpthread
 
 TARGETS=libgnirsioc.o libgnirsioc.a version.o libgnirs.o install

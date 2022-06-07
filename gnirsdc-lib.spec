@@ -57,6 +57,8 @@ mkdir -p $RPM_BUILD_ROOT/%{_prefix}/%{name}
 mkdir -p $RPM_BUILD_ROOT/%{_prefix}/%{name}
 cp -r release/include $RPM_BUILD_ROOT/%{_prefix}/%{name}/include
 cp -r release/lib $RPM_BUILD_ROOT/%{_prefix}/%{name}/lib
+cp -r include $RPM_BUILD_ROOT/%{_prefix}/%{name}/include
+cp -r lib $RPM_BUILD_ROOT/%{_prefix}/%{name}/lib
 
 
 %postun
