@@ -19,7 +19,7 @@
 Summary: %{name} Package, library for gnirsDC ARC controller 
 Name: %{name}
 Version: 0.0.1
-Release: 1%{?dist}
+Release: 2%{?dist}
 License: EPICS Open License
 Group: Applications/Engineering
 Source0: %{name}-%{version}.tar.gz
@@ -81,6 +81,9 @@ rm -rf $RPM_BUILD_ROOT
    /%{_prefix}/%{name}/lib
 
 %changelog
+* Mon Jun 06 2022 Hawi Stecher <hstecher@gemini.edu> 0.0.1-2
+- new package built with tito
+
 * Wed Apr 27 2022 Hawi Stecher <hstecher@gemini.edu> 0.0.1-1
 - new package built with tito
 
