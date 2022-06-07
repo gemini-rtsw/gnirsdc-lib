@@ -4,7 +4,7 @@ include:
     ref: "unstable/2022q1"
     file: 
      - '/templates/gitlab-ci/templates/global-rpm-container-docker.gitlab-ci.template.yml'
-     - '/templates/gitlab-ci/templates/epics-base-rpm-container-docker.gitlab-ci.template.yml'
+     - '/templates/gitlab-ci/templates/app-rpm-container-docker.gitlab-ci.template.yml'
       
 
 variables:
