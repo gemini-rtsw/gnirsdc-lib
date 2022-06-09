@@ -19,9 +19,9 @@ libgnirsioc.a: libgnirsioc.o libgnirs.o version.o
 
 install:
 	mkdir -p ./release/include
-	mkdir -p ./release/lib
+	mkdir -p ./release/lib/linux-x86_64
 	install -m 644 libgnirsioc.h ./release/include/
-	install -m 644 libgnirsioc.a ./release/lib/
+	install -m 644 libgnirsioc.a ./release/lib/linux-x86_64
 
 uninstall:
 	rm -f $(TARGETS)
