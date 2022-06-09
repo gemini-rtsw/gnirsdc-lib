@@ -7,7 +7,7 @@
 
 typedef enum BiasLevel { LOW, MEDIUM, HIGH } BiasLevel;
 
-struct Config {
+struct ReadoutConfig {
 	std::string label;
 	std::string lod_file;
 	unsigned nrows;
@@ -52,7 +52,7 @@ public:
 
         std::mutex clockoutMutex;
 
-	Config mode{"", "/gem_base/epics/ioc/gnirsdc-dsp/gnirsdc-firmware/AladdinII_SDSU_Firmware.lod", 512, 2048, 1, 1, 0.0, 'M', 1};
+	ReadoutConfig mode{"", "/gem_base/epics/ioc/gnirsdc-dsp/gnirsdc-firmware/AladdinII_SDSU_Firmware.lod", 512, 2048, 1, 1, 0.0, 'M', 1};
 	std::string version();
 
 

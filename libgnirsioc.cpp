@@ -300,7 +300,7 @@ private:
 
 class Camera {
 public:
-	Camera(CArcDevice *pDevice, const Config &mode);
+	Camera(CArcDevice *pDevice, const ReadoutConfig &mode);
 	void expose(Controller* cont, float expTime, std::string basepath, std::string basename, CExpIFace* exp_iface, std::function<void (json_object*, json_object*)>);
 	void abort();
 
@@ -327,7 +327,7 @@ private:
 
 bool Camera::isAbort = false; 
 
-Camera::Camera(CArcDevice *pDevice, const Config &mode)
+Camera::Camera(CArcDevice *pDevice, const ReadoutConfig &mode)
 	: dev(pDevice),
 	  dRows(mode.nrows),
 	  dCols(mode.ncols),
@@ -551,7 +551,7 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 
 }
 
-void parse_cmd(int argc, char **argv, Config& mode, bool& reset, bool& debug)
+void parse_cmd(int argc, char **argv, ReadoutConfig& mode, bool& reset, bool& debug)
 {
 
 	for (int argi = 0; argi < argc; ++argi) {
