@@ -1,0 +1,118 @@
+#
+# This is the super Makefile for the ARC_API x64 libraries.
+#
+
+API_BASE	=	/home/hstecher/controller_test/ARC_API/3.5
+all: cpplibs jnilibs
+
+cpplibs:
+	@echo
+	@echo ------------------------------------------------------------------------------
+	@echo  Building CArcDevice
+	@echo ------------------------------------------------------------------------------
+	cd $(API_BASE)/CArcDevice/Release_x64; $(MAKE) -f makefile
+
+	@echo
+	@echo ------------------------------------------------------------------------------
+	@echo  Building CArcDeinterlace
+	@echo ------------------------------------------------------------------------------
+	cd $(API_BASE)/CArcDeinterlace/Release_x64; $(MAKE) -f makefile
+
+	#@echo
+	#@echo ------------------------------------------------------------------------------
+	#@echo  Building CArcDisplay
+	#@echo ------------------------------------------------------------------------------
+	#cd $(API_BASE)/CArcDisplay/Release_x64; $(MAKE) -f makefile
+
+	@echo
+	@echo ------------------------------------------------------------------------------
+	@echo  Building CArcImage
+	@echo ------------------------------------------------------------------------------
+	cd $(API_BASE)/CArcImage/Release_x64; $(MAKE) -f makefile
+
+	@echo
+	@echo ------------------------------------------------------------------------------
+	@echo  Building CArcFitsFile
+	@echo ------------------------------------------------------------------------------
+	cd $(API_BASE)/CArcFitsFile/Release_x64; $(MAKE) -f makefile
+
+#	@echo
+#	@echo ------------------------------------------------------------------------------
+#	@echo  Building CArcTiffFile
+#	@echo ------------------------------------------------------------------------------
+#	cd $(API_BASE)/CArcTiffFile/Release_x64; $(MAKE) -f makefile
+
+clean:
+	@echo
+	@echo ------------------------------------------------------------------------------
+	@echo  Building CArcDevice
+	@echo ------------------------------------------------------------------------------
+	cd $(API_BASE)/CArcDevice/Release_x64; $(MAKE) -f makefile clean
+
+	@echo
+	@echo ------------------------------------------------------------------------------
+	@echo  Building CArcDeinterlace
+	@echo ------------------------------------------------------------------------------
+	cd $(API_BASE)/CArcDeinterlace/Release_x64; $(MAKE) -f makefile clean
+
+	@echo
+	@echo ------------------------------------------------------------------------------
+	@echo  Building CArcDisplay
+	@echo ------------------------------------------------------------------------------
+	cd $(API_BASE)/CArcDisplay/Release_x64; $(MAKE) -f makefile clean
+
+	@echo
+	@echo ------------------------------------------------------------------------------
+	@echo  Building CArcImage
+	@echo ------------------------------------------------------------------------------
+	cd $(API_BASE)/CArcImage/Release_x64; $(MAKE) -f makefile clean
+
+	@echo
+	@echo ------------------------------------------------------------------------------
+	@echo  Building CArcFitsFile
+	@echo ------------------------------------------------------------------------------
+	cd $(API_BASE)/CArcFitsFile/Release_x64; $(MAKE) -f makefile clean
+
+	@echo
+	@echo ------------------------------------------------------------------------------
+	@echo  Building CArcTiffFile
+	@echo ------------------------------------------------------------------------------
+	cd $(API_BASE)/CArcTiffFile/Release_x64; $(MAKE) -f makefile clean
+
+jnilibs:
+	@echo
+	@echo ------------------------------------------------------------------------------
+	@echo  Building ArcDeviceJAPI
+	@echo ------------------------------------------------------------------------------
+	cd $(API_BASE)/ArcDeviceJAPI/Release_x64; $(MAKE) -f makefile
+
+	@echo
+	@echo ------------------------------------------------------------------------------
+	@echo  Building ArcDeinterlaceJAPI
+	@echo ------------------------------------------------------------------------------
+	cd $(API_BASE)/ArcDeinterlaceJAPI/Release_x64; $(MAKE) -f makefile
+
+	@echo
+	@echo ------------------------------------------------------------------------------
+	@echo  Building ArcDisplayJAPI
+	@echo ------------------------------------------------------------------------------
+	cd $(API_BASE)/ArcDisplayJAPI/Release_x64; $(MAKE) -f makefile
+
+	@echo
+	@echo ------------------------------------------------------------------------------
+	@echo  Building ArcImageJAPI
+	@echo ------------------------------------------------------------------------------
+	cd $(API_BASE)/ArcImageJAPI/Release_x64; $(MAKE) -f makefile
+
+	@echo
+	@echo ------------------------------------------------------------------------------
+	@echo  Building ArcFitsFileJAPI
+	@echo ------------------------------------------------------------------------------
+	cd $(API_BASE)/ArcFitsFileJAPI/Release_x64; $(MAKE) -f makefile
+
+	@echo
+	@echo ------------------------------------------------------------------------------
+	@echo  Building ArcTiffFileJAPI
+	@echo ------------------------------------------------------------------------------
+	cd $(API_BASE)/ArcTiffFileJAPI/Release_x64; $(MAKE) -f makefile
+
