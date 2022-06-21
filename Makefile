@@ -22,6 +22,7 @@ install:
 	mkdir -p ./release/lib/linux-x86_64
 	install -m 644 libgnirsioc.h ./release/include/
 	install -m 644 libgnirsioc.a ./release/lib/linux-x86_64
+	install -m 644 lib/* ./release/lib/linux-x86_64
 
 uninstall:
 	rm -f $(TARGETS)
