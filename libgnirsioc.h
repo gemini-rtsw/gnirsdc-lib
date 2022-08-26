@@ -30,6 +30,7 @@ public:
 	int setExposure(double fowlserSamples, double adcSamples, double exposureTime, int sequence);
 	void setAladdinIII(bool isAladdinIII);
         int startExposure(double temp1, double temp2, bool raw);	
+	int startExposureBlock(double temp1, double temp2, bool raw); 
 	void abortExposure();
 
 

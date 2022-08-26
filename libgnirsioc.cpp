@@ -789,6 +789,16 @@ int controllerInterface::startExposure(double temp1, double temp2, bool raw) {
 	return 0;
 }
 
+int controllerInterface::startExposureBlock(double temp1, double temp2, bool raw) {
+	include_raw=raw;
+	tempIN1 = temp1;
+	tempIN2 = temp2;
+
+	exposeFunct();
+
+	return 0;
+}
+
 void controllerInterface::abortExposure() {
 	std::cout << "Trying to abort\n";
 	Camera camera(gCont->getDev(), mode);
