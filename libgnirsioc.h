@@ -4,6 +4,8 @@
 #include <string>
 #include <thread>
 #include <mutex>
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 
 typedef enum BiasLevel { LOW, MEDIUM, HIGH } BiasLevel;
 
@@ -18,6 +20,8 @@ struct ReadoutConfig {
         char wellDepth;
 	int sequence;
 };
+
+namespace py = pybind11;
 
 class controllerInterface {
 public:
@@ -80,7 +84,26 @@ private:
 };
 
 
+PYBIND11_MODULE(libgnirsioc, m) {
+	py::enum_<BiasLevel>(m, "BiasLevel")
+		.value("LOW", BiasLevel::LOW)
+		.value("MEDIUM", BiasLevel::MEDIUM)
+		.value("HIGH", BiasLevel::HIGH);
 
+	py::class_<ReadoutConfig>(m, "ReadoutConfig")
+		.def(py::init<>())
+		.def_readwrite("label", &ReadoutConfig::label)
+		.def_readwrite("lod_file", &ReadoutConfig::lod_file);
+		// ... continue with other members ...
+		
+
+	py::class_<controllerInterface>(m, "controllerInterface")
+		.def(py::init<>())
+		.def("init", &controllerInterface::init)
+		.def("biasLow", &controllerInterface::biasLow);
+		// ... continue with other methods ...
+		
+}
 
 #endif // __LIB_GNIRS_IOC__
  
