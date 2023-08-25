@@ -675,6 +675,7 @@ controllerInterface::controllerInterface() : exposureThread(NULL)  {
 	clockoutAll = false;
 
 	//include_raw = false;
+	std::cout << "Connect to Device \n";
 
 	gCont->connect_device();
 

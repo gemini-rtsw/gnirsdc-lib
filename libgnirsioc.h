@@ -17,7 +17,7 @@ struct ReadoutConfig {
 	unsigned nadcs;
 	unsigned frames;
 	float exposure;
-        char wellDepth;
+    char wellDepth;
 	int sequence;
 };
 
@@ -93,15 +93,35 @@ PYBIND11_MODULE(libgnirsioc, m) {
 	py::class_<ReadoutConfig>(m, "ReadoutConfig")
 		.def(py::init<>())
 		.def_readwrite("label", &ReadoutConfig::label)
-		.def_readwrite("lod_file", &ReadoutConfig::lod_file);
-		// ... continue with other members ...
+		.def_readwrite("lod_file", &ReadoutConfig::lod_file)
+		.def_readwrite("nrows", &ReadoutConfig::nrows)
+		.def_readwrite("ncols", &ReadoutConfig::ncols)
+		.def_readwrite("nadcs", &ReadoutConfig::nadcs)
+		.def_readwrite("frames", &ReadoutConfig::frames)
+		.def_readwrite("exposure", &ReadoutConfig::exposure)
+		.def_readwrite("wellDepth", &ReadoutConfig::wellDepth)
+		.def_readwrite("sequence", &ReadoutConfig::sequence);
 		
 
 	py::class_<controllerInterface>(m, "controllerInterface")
 		.def(py::init<>())
 		.def("init", &controllerInterface::init)
-		.def("biasLow", &controllerInterface::biasLow);
-		// ... continue with other methods ...
+		.def("biasLow", &controllerInterface::biasLow)
+		.def("biasMed", &controllerInterface::biasMed)
+		.def("biasHigh", &controllerInterface::biasHigh)
+		.def("setExposure", &controllerInterface::setExposure)
+		.def("setAladdinIII", &controllerInterface::setAladdinIII)
+		.def("startExposure", &controllerInterface::startExposure)
+		.def("startExposureBlock", &controllerInterface::startExposureBlock)
+		.def("abortExposure", &controllerInterface::abortExposure)
+		.def("setClockoutAll", &controllerInterface::setClockoutAll)
+		.def("setNumClockouts", &controllerInterface::setNumClockouts)
+		.def("clockoutArray", &controllerInterface::clockoutArray)
+		.def("continuousClockoutsStart", &controllerInterface::continuousClockoutsStart)
+		.def("continuousClockoutsStop", &controllerInterface::continuousClockoutsStop)
+		.def("resetArray", &controllerInterface::resetArray)
+		.def("resetReadArray", &controllerInterface::resetReadArray)
+		.def("readoutArray", &controllerInterface::readoutArray);
 		
 }
 
