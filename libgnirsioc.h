@@ -4,8 +4,12 @@
 #include <string>
 #include <thread>
 #include <mutex>
+#include <iostream>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+
+
+using namespace std; 
 
 typedef enum BiasLevel { LOW, MEDIUM, HIGH } BiasLevel;
 
@@ -84,6 +88,39 @@ private:
 };
 
 
+/**
+ * @class controllerInterfaceDebug
+ * @brief This class provides an interface for controlling and debugging various functionalities.
+ *
+ * It includes methods for initialization, bias configuration, exposure settings, 
+ * clocking out, resetting, reading, and handling specific instruments such as Aladdin III.
+ * Logging is done through standard output for tracking the execution of different operations.
+ */
+
+class controllerInterfaceDebug {
+public:
+	controllerInterfaceDebug()						{cout << "controllerInterface constructor" << endl;}
+	~controllerInterfaceDebug()						{cout << "controllerInterface destructor" << endl;}
+	int init()  									{cout << "init" << endl;return 0;}
+	int biasLow() 									{cout << "biasLow" << endl;return 0;}
+	int biasMed() 									{cout << "biasMed" << endl;return 0;}
+	int biasHigh() 									{cout << "biasHigh" << endl;}
+	int setExposure(double fowlserSamples, double adcSamples, double exposureTime, int sequence){cout << "setExposure" << endl;return 0;}
+	void setAladdinIII(bool isAladdinIII)			{cout << "setAladdinIII" << endl;}
+    int startExposure(double temp1, double temp2) 	{cout << "startExposure" << endl;return 0;}
+	int startExposureBlock(double temp1, double temp2) {cout << "startExposureBlock" << endl;return 0;}
+	void abortExposure() 							{cout << "abortExposure" << endl; }
+	void setClockoutAll(bool isAll) 				{cout << "setClockoutAll" << endl;}
+    void setNumClockouts(int clockouts) 			{cout << "setNumClockouts" << endl;}
+	void clockoutArray() 							{cout << "clockoutArray" << endl;}
+	void continuousClockoutsStart() 				{cout << "continuousClockoutsStart" << endl;}
+	void continuousClockoutsStop() 					{cout << "continuousClockoutsStop" << endl;}
+	void resetArray() 								{cout << "resetArray" << endl; }
+	void resetReadArray() 							{cout << "resetReadArray" << endl; }
+	void readoutArray() 							{cout << "readoutArray" << endl; }
+};
+
+
 PYBIND11_MODULE(libgnirsioc, m) {
 	py::enum_<BiasLevel>(m, "BiasLevel")
 		.value("LOW", BiasLevel::LOW)
@@ -122,6 +159,27 @@ PYBIND11_MODULE(libgnirsioc, m) {
 		.def("resetArray", &controllerInterface::resetArray)
 		.def("resetReadArray", &controllerInterface::resetReadArray)
 		.def("readoutArray", &controllerInterface::readoutArray);
+
+
+	py::class_<controllerInterfaceDebug>(m, "controllerInterfaceDebug")
+		.def(py::init<>())
+		.def("init", &controllerInterfaceDebug::init)
+		.def("biasLow", &controllerInterfaceDebug::biasLow)
+		.def("biasMed", &controllerInterfaceDebug::biasMed)
+		.def("biasHigh", &controllerInterfaceDebug::biasHigh)
+		.def("setExposure", &controllerInterfaceDebug::setExposure)
+		.def("setAladdinIII", &controllerInterfaceDebug::setAladdinIII)
+		.def("startExposure", &controllerInterfaceDebug::startExposure)
+		.def("startExposureBlock", &controllerInterfaceDebug::startExposureBlock)
+		.def("abortExposure", &controllerInterfaceDebug::abortExposure)
+		.def("setClockoutAll", &controllerInterfaceDebug::setClockoutAll)
+		.def("setNumClockouts", &controllerInterfaceDebug::setNumClockouts)
+		.def("clockoutArray", &controllerInterfaceDebug::clockoutArray)
+		.def("continuousClockoutsStart", &controllerInterfaceDebug::continuousClockoutsStart)
+		.def("continuousClockoutsStop", &controllerInterfaceDebug::continuousClockoutsStop)
+		.def("resetArray", &controllerInterfaceDebug::resetArray)
+		.def("resetReadArray", &controllerInterfaceDebug::resetReadArray)
+		.def("readoutArray", &controllerInterfaceDebug::readoutArray);
 		
 }
 
