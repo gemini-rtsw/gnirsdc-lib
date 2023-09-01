@@ -1,6 +1,9 @@
 PyBind11
 
 export LD_LIBRARY_PATH=/home/gnirsdc-lib/release/lib/linux-x86_64/:$LD_LIBRARY_PATH
+#rocky 9 
+dnf --enablerepo=crb install json-c-devel
+
 dnf install libuuid-devel json-c-devel pybind11-devel
 python
 >>> import libgnirsioc
