@@ -4,7 +4,7 @@ PYTHON_INCLUDES=$(shell python3-config --includes)
 
 CPPFLAGS=-std=c++11 -I./include -I/usr/include/json-c $(PYTHON_INCLUDES) -Wall -fPIC
 
-LDFLAGS=-L./lib  -Wl,-rpath=/lib -shared
+LDFLAGS=-L./lib  -Wl,-rpath,'$ORIGIN' -shared
 LDLIBS=-lCArcDevice -lCArcDeinterlace -lCArcFitsFile -lcfitsio -ljson-c -luuid -lpthread
 
 TARGETS=libgnirsioc.so version.o libgnirs.o libgnirsioc.o install
@@ -30,6 +30,7 @@ install:
 	install -m 644 libgnirsioc.h ./release/include/
 	install -m 755 libgnirsioc.so ./release/lib/linux-x86_64
 	install -m 644 lib/* ./release/lib/linux-x86_64
+	install -m 644 ./release/lib/linux-x86_64/* ./libgnirsioc
 
 
 uninstall:
