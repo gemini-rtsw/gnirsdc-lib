@@ -30,7 +30,6 @@ install:
 	install -m 644 libgnirsioc.h ./release/include/
 	install -m 755 libgnirsioc.so ./release/lib/linux-x86_64
 	install -m 644 lib/* ./release/lib/linux-x86_64
-	install -m 644 ./release/lib/linux-x86_64/* ./libgnirsioc
 
 
 uninstall:
