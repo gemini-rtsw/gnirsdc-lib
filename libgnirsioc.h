@@ -105,7 +105,7 @@ public:
 	int biasLow() 									{cout << "biasLow" << endl;return 0;}
 	int biasMed() 									{cout << "biasMed" << endl;return 0;}
 	int biasHigh() 									{cout << "biasHigh" << endl;}
-	int setExposure(double fowlserSamples, double adcSamples, double exposureTime, int sequence){cout << "setExposure" << endl;return 0;}
+	int setExposure(double fowlserSamples, double adcSamples, double exposureTime, int sequence){cout << "setExposure lnr: " << fowlserSamples << " adc: " << adcSamples << " exposureTime: " << exposureTime << " sequence: " << sequence << endl;return 0;}
 	void setAladdinIII(bool isAladdinIII)			{cout << "setAladdinIII" << endl;}
     int startExposure(double temp1, double temp2) 	{cout << "startExposure" << endl;return 0;}
 	int startExposureBlock(double temp1, double temp2) {cout << "startExposureBlock" << endl;return 0;}
