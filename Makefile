@@ -7,13 +7,13 @@ CPPFLAGS=-std=c++11 -I./include -I/usr/include/json-c $(PYTHON_INCLUDES) -Wall -
 LDFLAGS=-L./lib  -Wl,-rpath=/lib -shared
 LDLIBS=-lCArcDevice -lCArcDeinterlace -lCArcFitsFile -lcfitsio -ljson-c -luuid -lpthread
 
-TARGETS=libgnirsioc.so version.o libgnirs.o install
+TARGETS=libgnirsioc.so version.o libgnirs.o libgnirsioc.o install
 CPPDEPS=libgnirs.cpp
 HDEPS=libgnirs.h libgnirsioc.h
 
 all: $(TARGETS)
 
-libgnirsioc.so: libgnirsioc.o libgnirs.o version.o
+libgnirsioc.so: libgnirsioc.o libgnirs.o version.o 
 	g++ $(CPPFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 libgnirsioc.o: libgnirsioc.cpp $(HDEPS)
@@ -43,3 +43,4 @@ distclean:
 clean:
 	rm -f $(TARGETS)
 	rm -rf ./release
+

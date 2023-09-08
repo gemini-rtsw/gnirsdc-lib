@@ -2,7 +2,7 @@ PyBind11
 
 #Build
 #might need this for rocky 9: dnf --enablerepo=crb install json-c-devel
-dnf install libuuid-devel json-c-devel pybind11-devel
+dnf install libuuid-devel json-c-devel pybind11-devel python3-devel
 make
 
 
