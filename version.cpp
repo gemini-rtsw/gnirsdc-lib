@@ -1,3 +1,3 @@
-#include "version.h"
+-e #include "version.h"
 
-char const *const GIT_COMMIT = "gnirsdc-lib-0.0.1-2-19-g76926a3";
+char const *const GIT_COMMIT = "gnirsdc-lib-0.0.1-2-20-ga26acbb";

@@ -1,6 +1,6 @@
 $(shell echo -e "#include \"version.h\"\n\nchar const *const GIT_COMMIT = \"$$(git describe --tags --long)\";" > version.cpp.tmp; if diff -q version.cpp.tmp version.cpp >/dev/null 2>&1; then rm version.cpp.tmp; else mv version.cpp.tmp version.cpp; fi)
 
-PYTHON_INCLUDES=$(shell python3-config --includes)
+PYTHON_INCLUDES=$(shell python3.9-config --includes)
 
 CPPFLAGS=-std=c++11 -I./include -I/usr/include/json-c $(PYTHON_INCLUDES) -Wall -fPIC
 

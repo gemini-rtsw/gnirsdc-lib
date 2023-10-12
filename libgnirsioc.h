@@ -37,7 +37,7 @@ public:
 	int biasHigh();
 	int setExposure(double fowlserSamples, double adcSamples, double exposureTime, int sequence);
 	void setAladdinIII(bool isAladdinIII);
-        int startExposure(double temp1, double temp2, bool raw);	
+    int startExposure(double temp1, double temp2, bool raw);	
 	int startExposureBlock(double temp1, double temp2, bool raw); 
 	void abortExposure();
 
@@ -107,8 +107,8 @@ public:
 	int biasHigh() 									{cout << "biasHigh" << endl;}
 	int setExposure(double fowlserSamples, double adcSamples, double exposureTime, int sequence){cout << "setExposure lnr: " << fowlserSamples << " adc: " << adcSamples << " exposureTime: " << exposureTime << " sequence: " << sequence << endl;return 0;}
 	void setAladdinIII(bool isAladdinIII)			{cout << "setAladdinIII" << endl;}
-    int startExposure(double temp1, double temp2) 	{cout << "startExposure" << endl;return 0;}
-	int startExposureBlock(double temp1, double temp2) {cout << "startExposureBlock" << endl;return 0;}
+    int startExposure(double temp1, double temp2, bool raw) 	{cout << "startExposure" << endl;return 0;}
+	int startExposureBlock(double temp1, double temp2, bool raw) {cout << "startExposureBlock" << endl;return 0;}
 	void abortExposure() 							{cout << "abortExposure" << endl; }
 	void setClockoutAll(bool isAll) 				{cout << "setClockoutAll" << endl;}
     void setNumClockouts(int clockouts) 			{cout << "setNumClockouts" << endl;}

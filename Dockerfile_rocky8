@@ -1,0 +1,21 @@
+# Usage
+# Build:
+# cd <gnirsdc-lib repo base>
+# docker build -t gnirsdc-lib-env .
+# docker run --rm -v $(pwd):/work/$(basename $(pwd)) -it gnirsdc-lib-env bash -l -c "cd /work/$(basename $(pwd)) && make clean all"
+#
+# Use in python environment: 
+# pip install .
+#
+# Use Rocky Linux 8 as the base image
+FROM rockylinux/rockylinux:8
+
+# Metadata as described
+LABEL maintainer="hawi.stecher@noirlab.edu"
+LABEL date="2023-10-11"
+
+# Update the package index and install required packages
+RUN dnf install -y python39 python39-devel epel-release && \
+    dnf -y update && \
+    dnf config-manager --set-enabled powertools  && \
+    dnf -y install json-c-devel libuuid-devel pybind11-devel gcc-c++ make
