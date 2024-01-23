@@ -61,7 +61,7 @@ public:
 
         std::mutex clockoutMutex;
 
-	ReadoutConfig mode{"", "/gem_base/epics/ioc/gnirsdc-dsp/gnirsdc-firmware/AladdinII_SDSU_Firmware.lod", 512, 2048, 1, 1, 0.0, 'M', 1};
+	ReadoutConfig mode{"", "./firmware/AladdinII_SDSU_Firmware.lod", 512, 2048, 1, 1, 0.0, 'M', 1};
 	std::string version();
 
 
