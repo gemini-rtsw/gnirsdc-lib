@@ -68,8 +68,8 @@ public:
 private:
 	void exposeFunct();
 	int expose();
-	std::string aladdinIIFilename{"/gem_base/epics/ioc/gnirsdc-dsp/gnirsdc-firmware/laddinII_SDSU_Firmware.lod"};
-	std::string aladdinIIIFilename{"/gem_base/epics/ioc/gnirsdc-dsp/gnirsdc-firmware/AladdinIII_SDSU_Firmware.lod"};
+	std::string aladdinIIFilename{"./firmware/AladdinII_SDSU_Firmware.lod"};
+	std::string aladdinIIIFilename{"./firmware/AladdinIII_SDSU_Firmware.lod"};
 	bool reset;
 	bool debug;
 

@@ -957,7 +957,7 @@ int controllerInterface::expose() {
 
 	clockoutMutex.lock(); // wait for continuous clockout to stop
 
-        for (int i=0; i < mode.sequence; i++) {
+    for (int i=0; i < mode.sequence; i++) {
 
 		if (Camera::isAbort) break;
 
