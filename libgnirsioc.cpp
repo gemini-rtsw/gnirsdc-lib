@@ -1,5 +1,6 @@
 
 #include <iostream>
+#include <filesystem>
 #include <map>
 #include <string>
 #include <unistd.h>
@@ -712,10 +713,21 @@ void controllerInterface::setAladdinIII(bool isAladdinIII) {
 
 int controllerInterface::init() {
 
-	std::cout << "Performing reset\n";
-	gCont->getDev()->Reset();
+	std::cout << "Setting up with file: " << mode.lod_file << '\n';
 
-	std::cout << "Setting up with file" << mode.lod_file << '\n';
+
+    // Check if file exists
+    std::ifstream file(mode.lod_file);
+    if (!file) {
+        std::cout << "Error: LOD file does not exist.\n";
+        return -1; // or handle the error as needed
+    }
+	else {
+		std::cout << "LOD file found.\n";
+	}
+
+	std::cout << "Performing reset.\n";
+	gCont->getDev()->Reset();
 
 	gCont->setup_controller(mode.lod_file, true, reset); // Power on
 
