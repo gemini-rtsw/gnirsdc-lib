@@ -676,18 +676,30 @@ controllerInterface::controllerInterface() : exposureThread(NULL)  {
 	clockoutAll = false;
 
 	//include_raw = false;
-	std::cout << "Connect to Device \n";
+	std::cout << "Connecting to Arc Controller \n";
 
-	gCont->connect_device();
+		try {
+			gCont->connect_device();
 
-	std::cout << "List of devices:\n";
-	for (auto st: gCont->device_list()) {
-		std::cout << "  " << st << '\n';
-	}
+			std::cout << "List of devices:\n";
+			for (auto st: gCont->device_list()) {
+				std::cout << "  " << st << '\n';
+			}
 
-	std::cout << "TDL testing: " << gCont->tdl_testing(123) << '\n';
+			std::cout << "TDL testing: " << gCont->tdl_testing(123) << '\n';
+		}
+		catch (const std::exception& e) {
+			std::cout << "Exception caught: " << e.what() << std::endl;
+		}
+
 
 }
+
+controllerInterface::controllerInterface(std::string readoutPath, std::string lodPath) : controllerInterface() {
+	this->readoutPath = readoutPath;
+	this->lodPath = lodPath;	
+}
+
 
 controllerInterface::~controllerInterface() {
 	delete gCont;
@@ -713,15 +725,17 @@ void controllerInterface::setAladdinIII(bool isAladdinIII) {
 
 int controllerInterface::init() {
 
-	std::cout << "Setting up with file: " << mode.lod_file << '\n';
+	std::string fullPath = this->lodPath + "/" + mode.lod_file;
+
+	std::cout << "Setting up with file: " << fullPath << '\n';
 
 
     // Check if file exists
-    std::ifstream file(mode.lod_file);
-    if (!file) {
-        std::cout << "Error: LOD file does not exist.\n";
-        return -1; // or handle the error as needed
-    }
+	std::ifstream file(fullPath);
+	if (!file) {
+		std::cout << "Error: LOD file does not exist.\n";
+		return -1; // or handle the error as needed
+	}
 	else {
 		std::cout << "LOD file found.\n";
 	}
@@ -729,12 +743,23 @@ int controllerInterface::init() {
 	std::cout << "Performing reset.\n";
 	gCont->getDev()->Reset();
 
-	gCont->setup_controller(mode.lod_file, true, reset); // Power on
+	gCont->setup_controller(fullPath, true, reset); // Power on
 
 	biasMed();
 
 	return 0;
 }
+
+bool controllerInterface::testDataLink() {
+	std::cout << "Testing Data Link"; 
+	
+	bool result = gCont->tdl_testing(123);
+	
+	std::cout << "TDL: " << result << "\n";
+
+	return result;
+}
+
 
 int controllerInterface::biasLow() {
 
@@ -977,7 +1002,7 @@ int controllerInterface::expose() {
 			clockoutArray();
 		}
 
-		camera.expose(gCont, mode.exposure, "/home/readout_data/new/", get_uuid(), &callbacks, processHeader);
+		camera.expose(gCont, mode.exposure, this->readoutPath + "/new/", get_uuid(), &callbacks, processHeader);
 	}
 
 	clockoutMutex.unlock();

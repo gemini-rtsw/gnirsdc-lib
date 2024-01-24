@@ -30,8 +30,10 @@ namespace py = pybind11;
 class controllerInterface {
 public:
 	controllerInterface();
+	controllerInterface(std::string readoutPath, std::string lodPath);
 	~controllerInterface();
 	int init();
+	bool testDataLink();
 	int biasLow();
 	int biasMed();
 	int biasHigh();
@@ -57,19 +59,24 @@ public:
 	void resetReadArray();
 	void readoutArray();
 
-        std::mutex busyMutex;
+    std::mutex busyMutex;
 
-        std::mutex clockoutMutex;
+    std::mutex clockoutMutex;
 
-	ReadoutConfig mode{"", "./firmware/AladdinII_SDSU_Firmware.lod", 512, 2048, 1, 1, 0.0, 'M', 1};
+	//ReadoutConfig mode{"", "AladdinII_SDSU_Firmware.lod", 512, 2048, 1, 1, 0.0, 'M', 1};
+	ReadoutConfig mode{"", aladdinIIFilename, 512, 2048, 1, 1, 0.0, 'M', 1};
+
 	std::string version();
+
 
 
 private:
 	void exposeFunct();
 	int expose();
-	std::string aladdinIIFilename{"./firmware/AladdinII_SDSU_Firmware.lod"};
-	std::string aladdinIIIFilename{"./firmware/AladdinIII_SDSU_Firmware.lod"};
+	std::string aladdinIIFilename{"AladdinII_SDSU_Firmware.lod"};
+	std::string aladdinIIIFilename{"AladdinIII_SDSU_Firmware.lod"};
+	std::string readoutPath{"/readout_data/"};
+	std::string lodPath{"./firmware/"};
 	bool reset;
 	bool debug;
 
@@ -100,6 +107,7 @@ private:
 class controllerInterfaceDebug {
 public:
 	controllerInterfaceDebug()						{cout << "controllerInterface constructor" << endl;}
+	controllerInterfaceDebug(std::string readoutPath, std::string lodPath) {cout << "controllerInterface constructor" << endl;}
 	~controllerInterfaceDebug()						{cout << "controllerInterface destructor" << endl;}
 	int init()  									{cout << "init" << endl;return 0;}
 	int biasLow() 									{cout << "biasLow" << endl;return 0;}
@@ -141,8 +149,10 @@ PYBIND11_MODULE(libgnirsioc, m) {
 		
 
 	py::class_<controllerInterface>(m, "controllerInterface")
-		.def(py::init<>())
+        .def(py::init<>()) 							// Default constructor
+        .def(py::init<std::string, std::string>()) 	// Overloaded constructor
 		.def("init", &controllerInterface::init)
+		.def("testDataLink", &controllerInterface::testDataLink)
 		.def("biasLow", &controllerInterface::biasLow)
 		.def("biasMed", &controllerInterface::biasMed)
 		.def("biasHigh", &controllerInterface::biasHigh)
@@ -162,7 +172,8 @@ PYBIND11_MODULE(libgnirsioc, m) {
 
 
 	py::class_<controllerInterfaceDebug>(m, "controllerInterfaceDebug")
-		.def(py::init<>())
+		.def(py::init<>())							// Default constructor
+	    .def(py::init<std::string, std::string>()) 	// Overloaded constructor
 		.def("init", &controllerInterfaceDebug::init)
 		.def("biasLow", &controllerInterfaceDebug::biasLow)
 		.def("biasMed", &controllerInterfaceDebug::biasMed)
