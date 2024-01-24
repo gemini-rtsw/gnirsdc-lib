@@ -1002,7 +1002,8 @@ int controllerInterface::expose() {
 			clockoutArray();
 		}
 
-		camera.expose(gCont, mode.exposure, this->readoutPath + "/new/", get_uuid(), &callbacks, processHeader);
+		std::string path = std::string(this->readoutPath) + "/new/";
+		camera.expose(gCont, mode.exposure, path, get_uuid(), &callbacks, processHeader);
 	}
 
 	clockoutMutex.unlock();

@@ -11,6 +11,9 @@
 
 using namespace std; 
 
+#define ALADDINII_LOD_NAME 	"AladdinII_SDSU_Firmware.lod"
+#define ALADDINIII_LOD_NAME "AladdinIII_SDSU_Firmware.lod"
+
 typedef enum BiasLevel { LOW, MEDIUM, HIGH } BiasLevel;
 
 struct ReadoutConfig {
@@ -63,8 +66,7 @@ public:
 
     std::mutex clockoutMutex;
 
-	//ReadoutConfig mode{"", "AladdinII_SDSU_Firmware.lod", 512, 2048, 1, 1, 0.0, 'M', 1};
-	ReadoutConfig mode{"", aladdinIIFilename, 512, 2048, 1, 1, 0.0, 'M', 1};
+	ReadoutConfig mode{"", ALADDINII_LOD_NAME, 512, 2048, 1, 1, 0.0, 'M', 1};
 
 	std::string version();
 
@@ -73,8 +75,8 @@ public:
 private:
 	void exposeFunct();
 	int expose();
-	std::string aladdinIIFilename{"AladdinII_SDSU_Firmware.lod"};
-	std::string aladdinIIIFilename{"AladdinIII_SDSU_Firmware.lod"};
+	std::string aladdinIIFilename{ALADDINII_LOD_NAME};
+	std::string aladdinIIIFilename{ALADDINIII_LOD_NAME};
 	std::string readoutPath{"/readout_data/"};
 	std::string lodPath{"./firmware/"};
 	bool reset;
