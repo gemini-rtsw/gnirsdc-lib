@@ -112,6 +112,7 @@ public:
 	controllerInterfaceDebug(std::string readoutPath, std::string lodPath) {cout << "controllerInterface constructor" << endl;}
 	~controllerInterfaceDebug()						{cout << "controllerInterface destructor" << endl;}
 	int init()  									{cout << "init" << endl;return 0;}
+	bool testDataLink() 							{cout << "TDL" << endl;return 0;}
 	int biasLow() 									{cout << "biasLow" << endl;return 0;}
 	int biasMed() 									{cout << "biasMed" << endl;return 0;}
 	int biasHigh() 									{cout << "biasHigh" << endl;}
@@ -177,6 +178,7 @@ PYBIND11_MODULE(libgnirsioc, m) {
 		.def(py::init<>())							// Default constructor
 	    .def(py::init<std::string, std::string>()) 	// Overloaded constructor
 		.def("init", &controllerInterfaceDebug::init)
+		.def("testDataLink", &controllerInterfaceDebug::testDataLink)
 		.def("biasLow", &controllerInterfaceDebug::biasLow)
 		.def("biasMed", &controllerInterfaceDebug::biasMed)
 		.def("biasHigh", &controllerInterfaceDebug::biasHigh)
