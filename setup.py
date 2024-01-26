@@ -32,7 +32,7 @@ class CustomInstall(install):
         shutil.copy(src_file, target_site_packages_dir)
 
 setup(
-    name='your_package',
+    name='gnirsdc-lib',
     version='0.1',
     cmdclass={'install': CustomInstall},
     # other metadata
