@@ -1,7 +1,7 @@
 # Usage
 # Build:
 # cd <gnirsdc-lib repo base>
-# docker build -t gnirsdc-lib-env .
+# docker build -t gnirsdc-lib-env -f Dockerfile_rocky8 .
 # docker run --rm -v $(pwd):/work/$(basename $(pwd)) -it gnirsdc-lib-env bash -l -c "cd /work/$(basename $(pwd)) && make clean all"
 #
 # Use in python environment: 
