@@ -678,20 +678,20 @@ controllerInterface::controllerInterface() : exposureThread(NULL)  {
 	//include_raw = false;
 	std::cout << "Connecting to Arc Controller \n";
 
-		try {
-			gCont->connect_device();
+	try {
+		gCont->connect_device();
 
-			std::cout << "List of devices:\n";
-			for (auto st: gCont->device_list()) {
-				std::cout << "  " << st << '\n';
-			}
-
-			std::cout << "TDL testing: " << gCont->tdl_testing(123) << '\n';
-		}
-		catch (const std::exception& e) {
-			std::cout << "Exception caught: " << e.what() << std::endl;
+		std::cout << "List of devices:\n";
+		for (auto st: gCont->device_list()) {
+			std::cout << "  " << st << '\n';
 		}
 
+		std::cout << "TDL testing: " << gCont->tdl_testing(123) << '\n';
+	}
+	catch (const std::exception& e) {
+		std::cout << "Exception caught: " << e.what() << std::endl;
+		throw;
+	}
 
 }
 
