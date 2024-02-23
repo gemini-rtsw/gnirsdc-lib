@@ -685,8 +685,6 @@ controllerInterface::controllerInterface() : exposureThread(NULL)  {
 		for (auto st: gCont->device_list()) {
 			std::cout << "  " << st << '\n';
 		}
-
-		std::cout << "TDL testing: " << gCont->tdl_testing(123) << '\n';
 	}
 	catch (const std::exception& e) {
 		std::cout << "Exception caught: " << e.what() << std::endl;
@@ -751,7 +749,7 @@ int controllerInterface::init() {
 }
 
 bool controllerInterface::testDataLink() {
-	std::cout << "Testing Data Link"; 
+	std::cout << "Testing Data Link \n"; 
 	
 	bool result = gCont->tdl_testing(123);
 	
