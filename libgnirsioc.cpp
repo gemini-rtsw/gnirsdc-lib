@@ -746,7 +746,7 @@ int controllerInterface::init() {
 	}
 	catch (std::runtime_error& e)
 	{
-		std::cerr << "Error when setting up the controller\n";
+		std::cerr << "Error setting up the controller: " << e.what() << "\n";
 		return false;
 	}
 
