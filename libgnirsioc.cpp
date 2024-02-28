@@ -732,20 +732,27 @@ int controllerInterface::init() {
 	std::ifstream file(fullPath);
 	if (!file) {
 		std::cout << "Error: LOD file does not exist.\n";
-		return -1; // or handle the error as needed
+		return false; // or handle the error as needed
 	}
 	else {
 		std::cout << "LOD file found.\n";
 	}
 
-	std::cout << "Performing reset.\n";
-	gCont->getDev()->Reset();
+	try {
+		std::cout << "Performing reset.\n";
+		gCont->getDev()->Reset();
 
-	gCont->setup_controller(fullPath, true, reset); // Power on
+		gCont->setup_controller(fullPath, true, reset); // Power on
+	}
+	catch (std::runtime_error& e)
+	{
+		std::cerr << "Error when setting up the controller\n";
+		return false;
+	}
 
 	biasMed();
 
-	return 0;
+	return true;
 }
 
 bool controllerInterface::testDataLink() {
