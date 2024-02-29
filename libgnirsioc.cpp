@@ -738,17 +738,17 @@ int controllerInterface::init() {
 		std::cout << "LOD file found.\n";
 	}
 
-	try {
+//	try {
 		std::cout << "Performing reset.\n";
 		gCont->getDev()->Reset();
 
 		gCont->setup_controller(fullPath, true, reset); // Power on
-	}
-	catch (std::runtime_error& e)
-	{
-		std::cerr << "Error setting up the controller: " << e.what() << "\n";
-		return false;
-	}
+//	}
+//	catch (std::runtime_error& e)
+//	{
+//		std::cerr << "Error setting up the controller: " << e.what() << "\n";
+//		return false;
+//	}
 
 	biasMed();
 
