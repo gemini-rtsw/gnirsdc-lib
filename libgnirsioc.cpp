@@ -739,9 +739,10 @@ int controllerInterface::init() {
 	}
 
 //	try {
-		std::cout << "Performing reset.\n";
-		gCont->getDev()->Reset();
+		std::cout << "DEBUG NOT - Performing reset.\n";
+//		gCont->getDev()->Reset();
 
+		std::cout << "Setting up Controller.\n";
 		gCont->setup_controller(fullPath, true, reset); // Power on
 //	}
 //	catch (std::runtime_error& e)
