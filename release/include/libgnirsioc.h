@@ -35,6 +35,14 @@ public:
 	controllerInterface();
 	controllerInterface(std::string readoutPath, std::string lodPath);
 	~controllerInterface();
+
+	void allocController();
+	void connectDevice();
+	void listDevices();
+	void resetDevice();
+	void loadFirmware(std::string lodPath);
+
+
 	int init();
 	bool testDataLink();
 	int biasLow();
@@ -154,6 +162,11 @@ PYBIND11_MODULE(libgnirsioc, m) {
 	py::class_<controllerInterface>(m, "controllerInterface")
         .def(py::init<>()) 							// Default constructor
         .def(py::init<std::string, std::string>()) 	// Overloaded constructor
+		.def("allocController", &controllerInterface::allocController)
+		.def("connectDevice", &controllerInterface::connectDevice)
+		.def("listDevices", &controllerInterface::listDevices)
+		.def("resetDevice", &controllerInterface::resetDevice)
+		.def("loadFirmware", &controllerInterface::loadFirmware)
 		.def("init", &controllerInterface::init)
 		.def("testDataLink", &controllerInterface::testDataLink)
 		.def("biasLow", &controllerInterface::biasLow)

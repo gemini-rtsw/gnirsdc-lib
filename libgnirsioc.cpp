@@ -758,7 +758,7 @@ void controllerInterface::resetDevice() {
 	catch (std::runtime_error& e)
 	{
 		std::cerr << "Error setting up the controller: " << e.what() << "\n";
-		return false;
+		throw;
 	}
 }
 
@@ -770,7 +770,7 @@ void controllerInterface::loadFirmware(std::string lodPath) {
 	catch (std::runtime_error& e)
 	{
 		std::cerr << "Error setting up the controller: " << e.what() << "\n";
-		return false;
+		throw;
 	}
 }
 
