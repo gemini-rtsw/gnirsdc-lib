@@ -162,6 +162,7 @@ PYBIND11_MODULE(libgnirsioc, m) {
 	py::class_<controllerInterface>(m, "controllerInterface")
         .def(py::init<>()) 							// Default constructor
         .def(py::init<std::string, std::string>()) 	// Overloaded constructor
+		.def("version", &controllerInterface::version)
 		.def("allocController", &controllerInterface::allocController)
 		.def("connectDevice", &controllerInterface::connectDevice)
 		.def("listDevices", &controllerInterface::listDevices)
