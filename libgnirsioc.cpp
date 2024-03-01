@@ -668,7 +668,7 @@ std::string get_uuid() {
 
 controllerInterface::controllerInterface() : exposureThread(NULL)  {
 
-
+/*
  	gCont = new Controller(512, 12288);
 
 	reset = false;
@@ -690,8 +690,11 @@ controllerInterface::controllerInterface() : exposureThread(NULL)  {
 		std::cout << "Exception caught: " << e.what() << std::endl;
 		throw;
 	}
+*/
 
 }
+
+
 
 controllerInterface::controllerInterface(std::string readoutPath, std::string lodPath) : controllerInterface() {
 	this->readoutPath = readoutPath;
@@ -707,19 +710,70 @@ std::string controllerInterface::version() {
 	return GIT_COMMIT;
 }
 
-void controllerInterface::setAladdinIII(bool isAladdinIII) {
 
-	if (isAladdinIII) {
-		printf("Firmware set to Aladdin III\n");
-		mode.lod_file = aladdinIIIFilename;
-		gIsAladdinIII = true;
+
+void controllerInterface::allocController() {
+	try {
+		std::cout << "Allocating Controller Memory Buffer.\n";
+
+ 		gCont = new Controller(512, 12288);
 	}
-	else {
-		mode.lod_file = aladdinIIFilename;
-		printf("Firmware set to Aladdin II\n");
-		gIsAladdinIII = false;
+	catch (const std::exception& e) {
+		std::cout << "Exception caught: " << e.what() << std::endl;
+		throw;
 	}
-}	
+}
+
+void controllerInterface::connectDevice(){
+	try {
+		std::cout << "Connecting to PCI Device.\n";
+
+		gCont->connect_device();
+	}
+	catch (const std::exception& e) {
+		std::cout << "Exception caught: " << e.what() << std::endl;
+		throw;
+	}
+}
+
+void controllerInterface::listDevices() {
+	try {
+		std::cout << "List of devices:\n";
+		for (auto st: gCont->device_list()) {
+			std::cout << "  " << st << '\n';
+		}
+	}
+	catch (const std::exception& e) {
+		std::cout << "Exception caught: " << e.what() << std::endl;
+		throw;
+	}
+}
+
+void controllerInterface::resetDevice() {
+	try {
+		std::cout << "Performing reset.\n";
+		gCont->getDev()->Reset();
+
+	}
+	catch (std::runtime_error& e)
+	{
+		std::cerr << "Error setting up the controller: " << e.what() << "\n";
+		return false;
+	}
+}
+
+void controllerInterface::loadFirmware(std::string lodPath) {
+	try {
+		std::cout << "Loading LOD file.\n";
+		gCont->setup_controller(lodPath, true, reset); 
+	}
+	catch (std::runtime_error& e)
+	{
+		std::cerr << "Error setting up the controller: " << e.what() << "\n";
+		return false;
+	}
+}
+
 
 int controllerInterface::init() {
 
@@ -738,23 +792,39 @@ int controllerInterface::init() {
 		std::cout << "LOD file found.\n";
 	}
 
-//	try {
+	try {
 		std::cout << "DEBUG NOT - Performing reset.\n";
-//		gCont->getDev()->Reset();
+		gCont->getDev()->Reset();
 
 		std::cout << "Setting up Controller.\n";
 		gCont->setup_controller(fullPath, true, reset); // Power on
-//	}
-//	catch (std::runtime_error& e)
-//	{
-//		std::cerr << "Error setting up the controller: " << e.what() << "\n";
-//		return false;
-//	}
+	}
+	catch (std::runtime_error& e)
+	{
+		std::cerr << "Error setting up the controller: " << e.what() << "\n";
+		return false;
+	}
 
 	biasMed();
 
 	return true;
 }
+
+
+void controllerInterface::setAladdinIII(bool isAladdinIII) {
+
+	if (isAladdinIII) {
+		printf("Firmware set to Aladdin III\n");
+		mode.lod_file = aladdinIIIFilename;
+		gIsAladdinIII = true;
+	}
+	else {
+		mode.lod_file = aladdinIIFilename;
+		printf("Firmware set to Aladdin II\n");
+		gIsAladdinIII = false;
+	}
+}	
+
 
 bool controllerInterface::testDataLink() {
 	std::cout << "Testing Data Link \n"; 
