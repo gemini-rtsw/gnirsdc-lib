@@ -15,7 +15,7 @@ build_image:
    - git config --global user.name "$GITLAB_USER_NAME"
    - git add ./release/lib/linux-x86_64/libgnirsioc.so
   # Check if the specific .so file has changes
-  - |
+  - >
     if git diff --cached --name-only | grep -q 'release/lib/linux-x86_64/libgnirsioc.so'; then
       echo "libgnirsioc.so has changed. Committing and pushing changes."
       git commit -m "pipeline generated commit of shared libraries [skip ci]"
