@@ -9,12 +9,7 @@ build_image:
    - docker:dind
 
  script:
-   - docker build -t gnirsdc-lib-env -f Dockerfile_rocky8 .
-   - docker run --rm -v .:/repo gnirsdc-lib-env bash -l -c "cd /repo && make clean all" 
-   - git config --global user.email "$GITLAB_USER_EMAIL"
-   - git config --global user.name "$GITLAB_USER_NAME"
-   - git commit -am"pipeline generated commit of shared libraries [skip ci]" 
-   - git push origin HEAD:pybind11
+   - docker build  --build-arg "TOKEN=${GIT_TOKEN}" --build-arg "EMAIL=${GITLAB_USER_EMAIL}" --build-arg "NAME=${GITLAB_USER_NAME}" -t gnirsdc-lib-env -f Dockerfile_rocky8 .
 
  rules:
    - if: '$CI_COMMIT_BRANCH == "pybind11"'
