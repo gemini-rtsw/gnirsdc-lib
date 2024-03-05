@@ -11,6 +11,7 @@ build_image:
    - git config --global user.email "$GITLAB_USER_EMAIL"
    - git config --global user.name "$GITLAB_USER_NAME"
    - git commit -am"pipeline generated commit of shared libraries [skip ci]" 
-   - git push
+   - git push origin HEAD:pybind11
+
  rules:
    - if: '$CI_COMMIT_BRANCH == "pybind11"'
