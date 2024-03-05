@@ -13,7 +13,7 @@ build_image:
    - docker run --rm -v .:/repo gnirsdc-lib-env bash -l -c "cd /repo && make clean all" 
    - git config --global user.email "$GITLAB_USER_EMAIL"
    - git config --global user.name "$GITLAB_USER_NAME"
-   - git add ./release
+   - git add ./release/lib/linux-x86_64/lib/libgnirsioc.so
    - git commit -m"pipeline generated commit of shared libraries [skip ci]" 
    - git push origin HEAD:pybind11
 
