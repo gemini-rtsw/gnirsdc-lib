@@ -1,28 +1,28 @@
 stages:
- - build
+  - build
+
 before_script:
- - 'git remote set-url origin https://oauth2:$GIT_TOKEN@gitlab.com/nsf-noirlab/gemini/rtsw/iocs/gnirsdc-lib.git'
+  - 'git remote set-url origin https://oauth2:$GIT_TOKEN@gitlab.com/nsf-noirlab/gemini/rtsw/iocs/gnirsdc-lib.git'
+
 build_image:
- stage: build
- image: docker:latest
- services:
-   - docker:dind
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - docker build -t gnirsdc-lib-env -f Dockerfile_rocky8 .
+    - docker run --rm -v $(pwd):/repo gnirsdc-lib-env bash -l -c "cd /repo && make clean all" 
+    - git config --global user.email "$GITLAB_USER_EMAIL"
+    - git config --global user.name "$GITLAB_USER_NAME"
+    - git add ./release/lib/linux-x86_64/libgnirsioc.so
+    - >
+      if git diff --cached --name-only | grep -q 'release/lib/linux-x86_64/libgnirsioc.so'; then
+        echo "libgnirsioc.so has changed. Committing and pushing changes."
+        git commit -m "pipeline generated commit of shared libraries [skip ci]"
+        git push origin HEAD:pybind11
+      else
+        echo "No changes in libgnirsioc.so. Skipping commit and push."
+      fi
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "pybind11"'
 
- script:
-   - docker build  -t gnirsdc-lib-env -f Dockerfile_rocky8 .
-   - docker run --rm -v .:/repo gnirsdc-lib-env bash -l -c "cd /repo && make clean all" 
-   - git config --global user.email "$GITLAB_USER_EMAIL"
-   - git config --global user.name "$GITLAB_USER_NAME"
-   - git add ./release/lib/linux-x86_64/libgnirsioc.so
-  # Check if the specific .so file has changes
-  - >
-    if git diff --cached --name-only | grep -q 'release/lib/linux-x86_64/libgnirsioc.so'; then
-      echo "libgnirsioc.so has changed. Committing and pushing changes."
-      git commit -m "pipeline generated commit of shared libraries [skip ci]"
-      git push origin HEAD:pybind11
-    else
-      echo "No changes in libgnirsioc.so. Skipping commit and push."
-    fi
-
- rules:
-   - if: '$CI_COMMIT_BRANCH == "pybind11"'
