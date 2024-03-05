@@ -840,7 +840,7 @@ bool controllerInterface::testDataLink() {
 	
 	bool result = gCont->tdl_testing(123);
 	
-	std::cout << "TDL: " << result << "\n";
+	std::cout << "TDL:  " << result << "\n";
 
 	return result;
 }
