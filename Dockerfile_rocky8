@@ -20,17 +20,3 @@ RUN dnf install -y python39 python39-devel epel-release && \
     dnf config-manager --set-enabled powertools  && \
     dnf -y install json-c-devel libuuid-devel pybind11-devel gcc-c++ make
 
-
-
-
-ARG TOKEN
-ARG EMAIL
-ARG NAME
-
-RUN git clone -b pybind11           https://oauth2:$TOKEN@gitlab.com/nsf-noirlab/gemini/rtsw/iocs/gnirsdc-lib.git   /gnirsdc-lib
-RUN cd /gnirsdc-lib && make clean all
-RUN git config --global user.email $EMAIL
-RUN git config --global user.name $NAME
-RUN git commit -am"pipeline generated commit of shared libraries [skip ci]" 
-RUN git push origin HEAD:pybind11
-
