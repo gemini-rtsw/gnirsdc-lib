@@ -692,6 +692,15 @@ controllerInterface::controllerInterface() : exposureThread(NULL)  {
 	}
 */
 
+	reset = false;
+	debug = false;
+	clockoutAll = false;
+
+	this->allocController();
+
+	this->connectDevice();
+
+	this->listDevices();	
 }
 
 
