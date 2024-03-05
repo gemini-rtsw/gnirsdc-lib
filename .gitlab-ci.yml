@@ -1,10 +1,13 @@
 stages:
  - build
+before_script:
+ - git remote set-url origin https://oauth2:$GIT_TOKEN@gitlab.com/nsf-noirlab/gemini/rtsw/iocs/gnirsdc-lib.git
 build_image:
  stage: build
  image: docker:latest
  services:
    - docker:dind
+
  script:
    - docker build -t gnirsdc-lib-env -f Dockerfile_rocky8 .
    - docker run --rm -v .:/repo gnirsdc-lib-env bash -l -c "cd /repo && make clean all" 
