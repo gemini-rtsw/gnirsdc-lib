@@ -771,42 +771,33 @@ void controllerInterface::resetDevice() {
 	}
 }
 
-void controllerInterface::loadFirmware(std::string lodPath) {
+void controllerInterface::loadFirmware(std::string path) {
 	try {
+		// Check if file exists
+		std::ifstream file(path);
+		if (!file) {
+			throw std::runtime_error("Error: LOD file does not exist.");
+		}
+		else {
+			std::cout << "LOD file found.\n";
+		}
+
 		std::cout << "Loading LOD file.\n";
-		gCont->setup_controller(lodPath, true, reset); 
+		gCont->setup_controller(path, true, reset);
 	}
-	catch (std::runtime_error& e)
-	{
-		std::cerr << "Error setting up the controller: " << e.what() << "\n";
-		throw;
+	catch (std::runtime_error& e) {
+		std::cerr << "Error: " << e.what() << "\n";
+		throw; // Re-throwing to be handled by the caller
 	}
 }
 
 
 int controllerInterface::init() {
 
-	std::string fullPath = this->lodPath + "/" + mode.lod_file;
-
-	std::cout << "Setting up with file: " << fullPath << '\n';
-
-
-    // Check if file exists
-	std::ifstream file(fullPath);
-	if (!file) {
-		std::cout << "Error: LOD file does not exist.\n";
-		return false; // or handle the error as needed
-	}
-	else {
-		std::cout << "LOD file found.\n";
-	}
-
 	try {
-		std::cout << "DEBUG NOT - Performing reset.\n";
-		gCont->getDev()->Reset();
+		this->resetDevice();
 
-		std::cout << "Setting up Controller.\n";
-		gCont->setup_controller(fullPath, true, reset); // Power on
+		this->loadFirmware(this->lodPath);
 	}
 	catch (std::runtime_error& e)
 	{
@@ -814,7 +805,7 @@ int controllerInterface::init() {
 		return false;
 	}
 
-	biasMed();
+	this->biasMed();
 
 	return true;
 }
