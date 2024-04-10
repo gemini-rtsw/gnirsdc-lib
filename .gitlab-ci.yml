@@ -19,10 +19,10 @@ build_image:
       if git diff --cached --name-only | grep -q 'release/lib/linux-x86_64/libgnirsioc.so'; then
         echo "libgnirsioc.so has changed. Committing and pushing changes."
         git commit -m "pipeline generated commit - see .gitlab-ci.yml for details [skip ci]"
-        git push origin HEAD:pybind11
+        git push origin HEAD:master
       else
         echo "No changes in libgnirsioc.so. Skipping commit and push."
       fi
   rules:
-    - if: '$CI_COMMIT_BRANCH == "pybind11"'
+    - if: '$CI_COMMIT_BRANCH == "master"'
 
