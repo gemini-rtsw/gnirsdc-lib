@@ -18,7 +18,7 @@ LABEL date="2023-10-11"
 RUN dnf install -y epel-release && \
     dnf -y update && \
     dnf -y config-manager --set-enabled crb && \
-    dnf -y install json-c-devel libuuid-devel pybind11-devel python3-devel g++ make
+    dnf -y install json-c-devel libuuid-devel pybind11-devel python3-devel g++ make git
 
 
 
