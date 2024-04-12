@@ -1,6 +1,9 @@
 {
     "name": "Gemini GNIRS Development Container",
     "image": "registry.gitlab.com/nsf-noirlab/gemini/rtsw/iocs/gnirsdc-lib/gnirsdc-lib-env",
+    "runArgs": [
+        "-v", "${env:HOME}/.ssh:/root/.ssh:ro"
+    ],      
     "customizations": {
         "vscode": {
             "settings": {
@@ -10,6 +13,7 @@
                 "ms-python.python",
                 "ms-vscode.cpptools"
             ]
+          
         }
     },
     "forwardPorts": [],
