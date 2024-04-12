@@ -54,11 +54,17 @@ public:
 	int startExposureBlock(double temp1, double temp2, bool raw); 
 	void abortExposure();
 
+	void setReadingOut(boot readingState) { readingOut = readingState; };
+	bool getReadingOut() { return readingOut; };
 
-        void setClockoutAll(bool isAll) {
+
+
+
+
+    void setClockoutAll(bool isAll) {
 		clockoutAll = isAll;
 	}
-        void setNumClockouts(int clockouts);
+    void setNumClockouts(int clockouts);
 	void clockoutArray();
 	void continuousClockoutsStart();
 	void continuousClockoutsStop() {
@@ -101,6 +107,8 @@ private:
 
 	bool include_raw;
 
+	bool readingOut;
+
 	std::thread* exposureThread;
 };
 
@@ -129,6 +137,7 @@ public:
     int startExposure(double temp1, double temp2, bool raw) 	{cout << "startExposure" << endl;return 0;}
 	int startExposureBlock(double temp1, double temp2, bool raw) {cout << "startExposureBlock" << endl;return 0;}
 	void abortExposure() 							{cout << "abortExposure" << endl; }
+	bool getReadingOut()							{coud << "get reading out" << endl; return true; }
 	void setClockoutAll(bool isAll) 				{cout << "setClockoutAll" << endl;}
     void setNumClockouts(int clockouts) 			{cout << "setNumClockouts" << endl;}
 	void clockoutArray() 							{cout << "clockoutArray" << endl;}
@@ -177,6 +186,7 @@ PYBIND11_MODULE(libgnirsioc, m) {
 		.def("setAladdinIII", &controllerInterface::setAladdinIII)
 		.def("startExposure", &controllerInterface::startExposure)
 		.def("startExposureBlock", &controllerInterface::startExposureBlock)
+		.def("getReadingOut", &controllerInterface::getReadingOut)
 		.def("abortExposure", &controllerInterface::abortExposure)
 		.def("setClockoutAll", &controllerInterface::setClockoutAll)
 		.def("setNumClockouts", &controllerInterface::setNumClockouts)
@@ -200,6 +210,7 @@ PYBIND11_MODULE(libgnirsioc, m) {
 		.def("setAladdinIII", &controllerInterfaceDebug::setAladdinIII)
 		.def("startExposure", &controllerInterfaceDebug::startExposure)
 		.def("startExposureBlock", &controllerInterfaceDebug::startExposureBlock)
+		.def("getReadingOut", &controllerInterface::getReadingOut)
 		.def("abortExposure", &controllerInterfaceDebug::abortExposure)
 		.def("setClockoutAll", &controllerInterfaceDebug::setClockoutAll)
 		.def("setNumClockouts", &controllerInterfaceDebug::setNumClockouts)

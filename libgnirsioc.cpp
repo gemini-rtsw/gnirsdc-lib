@@ -913,6 +913,8 @@ int controllerInterface::startExposureBlock(double temp1, double temp2, bool raw
 	return 0;
 }
 
+
+
 void controllerInterface::abortExposure() {
 	std::cout << "Trying to abort\n";
 	Camera camera(gCont->getDev(), mode);
@@ -1012,31 +1014,33 @@ void controllerInterface::exposeFunct() {
 }
 
 int controllerInterface::expose() {
-        std::cout << "Sequence " << mode.sequence << std::endl;
 
-	auto processHeader = [this](json_object* temp, json_object* pdu){//json_object* bias, json_object* pmode){
+	this->setReadingOut(true);
 
-                        json_object_object_add(temp, "TEMP IN1", json_object_new_double(this->tempIN1));
-                        json_object_object_add(temp, "TEMP IN2", json_object_new_double(this->tempIN2));
-		
-			double biasVolts = 0;	
-			switch (this->currentBias) {
-				case LOW: biasVolts = -3.6;break;
-				case MEDIUM: biasVolts = -3.4;break;
-				case HIGH: biasVolts = -3.2;break;
-			}
-             //           json_object_object_add(pdu, "VDET", json_object_new_double(biasVolts));
-              //          json_object_object_add(pdu, "VDDUC", json_object_new_double(-4.0));
-                        json_object_object_add(pdu, "DETBIAS", json_object_new_double(-4.0 - biasVolts));
-                        json_object_object_add(pdu, "DCVER", json_object_new_string(GIT_COMMIT));
+	std::cout << "Sequence " << mode.sequence << std::endl;
 
-			if (this->include_raw)
-	                        json_object_object_add(pdu, "P_MODE", json_object_new_string("SEP"));
-			else
-	                        json_object_object_add(pdu, "P_MODE", json_object_new_string("STARE"));
-                };
+	auto processHeader = [this](json_object* temp, json_object* pdu){
 
-    	try {	
+		json_object_object_add(temp, "TEMP IN1", json_object_new_double(this->tempIN1));
+		json_object_object_add(temp, "TEMP IN2", json_object_new_double(this->tempIN2));
+			
+		double biasVolts = 0;	
+		switch (this->currentBias) {
+			case LOW: biasVolts = -3.6;break;
+			case MEDIUM: biasVolts = -3.4;break;
+			case HIGH: biasVolts = -3.2;break;
+		}
+
+		json_object_object_add(pdu, "DETBIAS", json_object_new_double(-4.0 - biasVolts));
+		json_object_object_add(pdu, "DCVER", json_object_new_string(GIT_COMMIT));
+
+		if (this->include_raw)
+			json_object_object_add(pdu, "P_MODE", json_object_new_string("SEP"));
+		else
+			json_object_object_add(pdu, "P_MODE", json_object_new_string("STARE"));
+	};
+
+	try {	
 		if (gIsAladdinIII) {
 			gCont->set_size(mode.nrows + 1, mode.ncols);
 		}
@@ -1066,15 +1070,14 @@ int controllerInterface::expose() {
 
 	Camera::isAbort = false; //just incase abort is pressed while not in an exposure
 
-        std::cout << "Clock through array to reduce first frame effect" << std::endl;
-
 	clockoutMutex.lock(); // wait for continuous clockout to stop
 
     for (int i=0; i < mode.sequence; i++) {
 
 		if (Camera::isAbort) break;
 
-                if (clockoutAll || i == 0) {
+		if (clockoutAll || i == 0) {
+			std::cout << "Clock through array to reduce first frame effect" << std::endl;
 			clockoutArray();
 		}
 
@@ -1087,9 +1090,9 @@ int controllerInterface::expose() {
 	Camera::isAbort = false;
 
 
-	std::cout << "Exposure complete\n";
+	this->setReadingOut(false);
 
-//        gCont->save_to("/home/hstecher/fits/test.fits");
+	std::cout << "Exposure complete\n";
 	
 	return 0;
 
