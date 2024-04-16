@@ -695,6 +695,7 @@ controllerInterface::controllerInterface() : exposureThread(NULL)  {
 	reset = false;
 	debug = false;
 	clockoutAll = false;
+	clockoutsEnabled = false;
 
 	this->allocController();
 
@@ -1076,7 +1077,8 @@ int controllerInterface::expose() {
 
 		if (Camera::isAbort) break;
 
-		if (clockoutAll || i == 0) {
+		
+		if (clockoutsEnabled && (clockoutAll || i == 0)) {
 			std::cout << "Clock through array to reduce first frame effect" << std::endl;
 			clockoutArray();
 		}

@@ -67,9 +67,8 @@ public:
     void setNumClockouts(int clockouts);
 	void clockoutArray();
 	void continuousClockoutsStart();
-	void continuousClockoutsStop() {
-		clockoutsStop = true;
-	}
+	void continuousClockoutsStop() { clockoutsStop = true; }
+	void enableClockouts(bool status) { clockoutsEnabled = status; }
 
 
 	void resetArray();
@@ -99,6 +98,7 @@ private:
 	void clockoutFunct();
 	bool clockoutAll;
 	bool clockoutsStop;
+	bool clockoutsEnabled;
 
 	BiasLevel currentBias = MEDIUM;
 
@@ -140,6 +140,7 @@ public:
 	bool getReadingOut()							{cout << "get reading out" << endl; return true; }
 	void setClockoutAll(bool isAll) 				{cout << "setClockoutAll" << endl;}
     void setNumClockouts(int clockouts) 			{cout << "setNumClockouts" << endl;}
+	void enableClockouts(bool status) 			    {cout << "enableClockouts" << endl;}
 	void clockoutArray() 							{cout << "clockoutArray" << endl;}
 	void continuousClockoutsStart() 				{cout << "continuousClockoutsStart" << endl;}
 	void continuousClockoutsStop() 					{cout << "continuousClockoutsStop" << endl;}
@@ -190,6 +191,7 @@ PYBIND11_MODULE(libgnirsioc, m) {
 		.def("abortExposure", &controllerInterface::abortExposure)
 		.def("setClockoutAll", &controllerInterface::setClockoutAll)
 		.def("setNumClockouts", &controllerInterface::setNumClockouts)
+		.def("enableClockouts", &controllerInterface::enableClockouts)
 		.def("clockoutArray", &controllerInterface::clockoutArray)
 		.def("continuousClockoutsStart", &controllerInterface::continuousClockoutsStart)
 		.def("continuousClockoutsStop", &controllerInterface::continuousClockoutsStop)
@@ -214,6 +216,7 @@ PYBIND11_MODULE(libgnirsioc, m) {
 		.def("abortExposure", &controllerInterfaceDebug::abortExposure)
 		.def("setClockoutAll", &controllerInterfaceDebug::setClockoutAll)
 		.def("setNumClockouts", &controllerInterfaceDebug::setNumClockouts)
+		.def("enableClockouts", &controllerInterfaceDebug::enableClockouts)
 		.def("clockoutArray", &controllerInterfaceDebug::clockoutArray)
 		.def("continuousClockoutsStart", &controllerInterfaceDebug::continuousClockoutsStart)
 		.def("continuousClockoutsStop", &controllerInterfaceDebug::continuousClockoutsStop)
