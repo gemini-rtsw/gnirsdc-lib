@@ -1036,6 +1036,7 @@ int controllerInterface::expose() {
 
 		json_object_object_add(pdu, "DETBIAS", json_object_new_double(-4.0 - biasVolts));
 		json_object_object_add(pdu, "DCVER", json_object_new_string(GIT_COMMIT));
+		json_object_object_add(pdu, "COADDS", json_object_new_int(mode.coadds));
 
 		if (this->include_raw)
 			json_object_object_add(pdu, "P_MODE", json_object_new_string("SEP"));
