@@ -100,7 +100,7 @@ private:
 void print_help()
 {
 	std::cerr << "ARC Detector Testing Program\n\n"
-		  << "  gnirsdc [-h] [-d] [-r] [-a #adc] [-f #samples] [-e seconds] [-w <S|M|D>] [-s #sequence]\n\n"
+		  << "  gnirsdc [-h] [-d] [-r] [-a #adc] [-f #samples] [-e seconds] [-w <S|M|D>] [-s #coadds]\n\n"
 		  << " -h		shows this help page\n"
 		  << " -d		increased debugging output\n"
 		  << " -r		resets the controller as part of the setup\n"
@@ -108,7 +108,7 @@ void print_help()
 		  << " -f <#>		number of Fowler samples (1 Fowler = reset and signal) [Default: 1]\n"
 		  << " -e <s>		expose for <s> seconds [Default: 0.0]\n"
 		  << " -w <S|M|D>	set well depth to shallow (-3.2) medium (-3.4) deep (-3.6) [Default: medium]\n"
-		  << " -s <#>		number of exposures in a sequence [Default: 1]\n";
+		  << " -s <#>		number of exposures in coadds [Default: 1]\n";
 }
 
 
@@ -536,15 +536,17 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 	json_object_object_add(pdu, "MIN_INT", json_object_new_double((cExpConst1 + cExpConst2 * nADCs) * nFrames));//getExposureOverhead(1, 1))); //function doesn't match time
 
 
-	processHeader(temperature, pdu);//bias_voltage, p_mode);
+	if (processHeader) {
+		processHeader(temperature, pdu);
 
+		std::ostringstream oss;
+		oss << basepath + basename << ".header";
 
-	std::ostringstream oss;
-	oss << basepath + basename << ".header";
-	std::ofstream ofs(oss.str());
+		std::ofstream ofs(oss.str());
+		ofs << json_object_to_json_string_ext(json_output, JSON_C_TO_STRING_PRETTY) << '\n';
+		json_object_put(json_output);
+	}
 
-	ofs << json_object_to_json_string_ext(json_output, JSON_C_TO_STRING_PRETTY) << '\n';
-	json_object_put(json_output);
 
 	for (unsigned i = 0; i < (nFrames * 2); i++) {
 		delete collectors[i];
@@ -639,9 +641,9 @@ void parse_cmd(int argc, char **argv, ReadoutConfig& mode, bool& reset, bool& de
 				exit(1);
 			}
 
-			mode.sequence = std::stoi(argv[argi]);
-			if (mode.sequence < 1) {
-				std::cerr << "Number in sequence must be positive\n";
+			mode.coadds = std::stoi(argv[argi]);
+			if (mode.coadds < 1) {
+				std::cerr << "Number in coadds must be positive\n";
 				exit(1);
 			}
 		}
@@ -874,12 +876,12 @@ int controllerInterface::biasHigh() {
 	return 0;
 }
 
-int controllerInterface::setExposure(double fowlerSamples, double adcSamples, double exposureTime, int sequence) {
+int controllerInterface::setExposure(double fowlerSamples, double adcSamples, double exposureTime, int coadds) {
 
 	if (fowlerSamples < 1) fowlerSamples = 1;
 	if (adcSamples < 1) adcSamples = 1;
 	if (exposureTime < 0) exposureTime = 0;
-	if (sequence < 1) sequence = 1;
+	if (coadds < 1) coadds = 1;
 
 
 	mode.frames = fowlerSamples;
@@ -887,7 +889,7 @@ int controllerInterface::setExposure(double fowlerSamples, double adcSamples, do
 	mode.exposure = exposureTime;
 	mode.nrows = ROWS_PER_FRAME;
         mode.ncols = COLS_PER_FRAME * mode.nadcs; 
-	mode.sequence = sequence;
+	mode.coadds = coadds;
 
 	std::cout << "Fowler samples: " << mode.frames << " ADCs: " << mode.nadcs << " Exposure time: " << mode.exposure << std::endl;
 
@@ -1018,9 +1020,9 @@ int controllerInterface::expose() {
 
 	this->setReadingOut(true);
 
-	std::cout << "Sequence " << mode.sequence << std::endl;
+	std::cout << "coadds " << mode.coadds << std::endl;
 
-	auto processHeader = [this](json_object* temp, json_object* pdu){
+	std::function<void(json_object*, json_object*)> processHeader = [this](json_object* temp, json_object* pdu){
 
 		json_object_object_add(temp, "TEMP IN1", json_object_new_double(this->tempIN1));
 		json_object_object_add(temp, "TEMP IN2", json_object_new_double(this->tempIN2));
@@ -1073,7 +1075,10 @@ int controllerInterface::expose() {
 
 	clockoutMutex.lock(); // wait for continuous clockout to stop
 
-    for (int i=0; i < mode.sequence; i++) {
+
+	std::string uuid = get_uuid();
+
+    for (int i=0; i < mode.coadds; i++) {
 
 		if (Camera::isAbort) break;
 
@@ -1084,7 +1089,8 @@ int controllerInterface::expose() {
 		}
 
 		std::string path = std::string(this->readoutPath) + "/new/";
-		camera.expose(gCont, mode.exposure, path, get_uuid(), &callbacks, processHeader);
+
+		camera.expose(gCont, mode.exposure, path, uuid, &callbacks, (i == mode.coadds -1 ? processHeader : nullptr)); // expose and process header on last coadd null lambda otherwise
 	}
 
 	clockoutMutex.unlock();
