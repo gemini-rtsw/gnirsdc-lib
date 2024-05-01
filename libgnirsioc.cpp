@@ -1091,7 +1091,7 @@ int controllerInterface::expose() {
 
 		std::string path = std::string(this->readoutPath) + "/new/";
 
-		camera.expose(gCont, mode.exposure, path, uuid, &callbacks, (i == mode.coadds -1 ? processHeader : nullptr)); // expose and process header on last coadd null lambda otherwise
+		camera.expose(gCont, mode.exposure, path, uuid + "-" + std::to_string(i), &callbacks, (i == mode.coadds -1 ? processHeader : nullptr));
 	}
 
 	clockoutMutex.unlock();
