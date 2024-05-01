@@ -53,6 +53,7 @@ public:
     int startExposure(double temp1, double temp2, bool raw);	
 	int startExposureBlock(double temp1, double temp2, bool raw); 
 	void abortExposure();
+	double getExposureDelay(double requestedExpTime, int num_fowlers, int num_adc);
 
 	void setReadingOut(bool readingState) { readingOut = readingState; };
 	bool getReadingOut() { return readingOut; };
@@ -189,6 +190,7 @@ PYBIND11_MODULE(libgnirsioc, m) {
 		.def("startExposureBlock", &controllerInterface::startExposureBlock)
 		.def("getReadingOut", &controllerInterface::getReadingOut)
 		.def("abortExposure", &controllerInterface::abortExposure)
+		.def("getExposureDelay", &controllerInterface::getExposureDelay)
 		.def("setClockoutAll", &controllerInterface::setClockoutAll)
 		.def("setNumClockouts", &controllerInterface::setNumClockouts)
 		.def("enableClockouts", &controllerInterface::enableClockouts)
