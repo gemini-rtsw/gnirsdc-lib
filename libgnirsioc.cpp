@@ -540,7 +540,7 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 		processHeader(temperature, pdu);
 
 		std::ostringstream oss;
-		oss << basepath + basename << ".header";
+		oss << basepath + basename.substr(0, basename.size() - 2) << ".header"; //subtract the coadd number from the header
 
 		std::ofstream ofs(oss.str());
 		ofs << json_object_to_json_string_ext(json_output, JSON_C_TO_STRING_PRETTY) << '\n';
