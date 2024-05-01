@@ -53,7 +53,7 @@ public:
     int startExposure(double temp1, double temp2, bool raw);	
 	int startExposureBlock(double temp1, double temp2, bool raw); 
 	void abortExposure();
-	double controllerInterface::getExposureDelay(double requestedExpTime, num_fowlers, num_adc);
+	double getExposureDelay(double requestedExpTime, int num_fowlers, int num_adc);
 
 	void setReadingOut(bool readingState) { readingOut = readingState; };
 	bool getReadingOut() { return readingOut; };
