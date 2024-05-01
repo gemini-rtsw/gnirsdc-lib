@@ -933,6 +933,11 @@ void controllerInterface::abortExposure() {
 
 }
 
+double controllerInterface::getExposureDelay(double requestedExpTime, num_fowlers, num_adc) {
+	return std::max((double)0, requestedExpTime - (cExpConst1 + cExpConst2 * num_adc) * num_fowlers);
+}
+
+
 void controllerInterface::setNumClockouts(int nClockouts) {
         if (nClockouts >= 0) {
         
