@@ -313,6 +313,7 @@ private:
 	unsigned dCols;
 	unsigned nFrames;
 	unsigned nADCs;
+	unsigned nDropFrames;
 
 	double getExposureOverhead(double fowlers, double  ADCs) {
 		return (cExpConst1 + cExpConst2 * ADCs) * fowlers;
@@ -333,7 +334,8 @@ Camera::Camera(CArcDevice *pDevice, const ReadoutConfig &mode)
 	  dRows(mode.nrows),
 	  dCols(mode.ncols),
 	  nFrames(mode.frames),
-	  nADCs(mode.nadcs)
+	  nADCs(mode.nadcs),
+	  nDropFrames(mode.drop_frames)
 
 {
 }
@@ -387,7 +389,7 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 		throw std::runtime_error("Set exposure time failed");
 	}
 
-	if (dev->Command( TIM_ID, SFS, nFrames) != DON) {
+	if (dev->Command( TIM_ID, SFS, nFrames * (1 + nDropFrames)) != DON) {
 		throw std::runtime_error("Set number of frames failed");
 	}
 
@@ -434,9 +436,6 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 		throw std::runtime_error("Starting exposure failed");
 	}
 
-
-//	auto ut_start = steady_clock::now();
-
 	std::cout << "ARC controller readout and exposure started\n";
 
 	isAbort = false;
@@ -449,33 +448,26 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 	int lastPixelCount = 0;
 	long totalPixelCount = 0;
 	unsigned int i = 0;	
-	while (i < nFrames * 2 && !isAbort) {
+	while (i < nFrames * 2 * (1 + nDropFrames) && !isAbort) {
 
-	//	std::cout << "Waiting for next readout to start last count: " << lastPixelCount << " pixels read: " << dev->GetPixelCount() << "\n";
-	//	if (i == nFrames) std::cout << "Exposing\n";
-
-//std::cout << "[ " << dev->GetPixelCount() << "]" << i << std::endl;
 		while (lastPixelCount >= dev->GetPixelCount() && !isAbort) {
 			lastPixelCount = dev->GetPixelCount();
 		}
-//std::cout << "[ " << dev->GetPixelCount() << "]" << i << std::endl;
 
-		if (i == 0) {
-			clock.set_timing_prefix("RESET_");
-			clock.set_timing_index(0);
-			clock.add_measurement(steady_clock::now());
+		// only do timing if we are going to save the data
+		if (i % (1 + nDropFrames) == 0) {
+			if (i == 0) {
+				clock.set_timing_prefix("RESET_");
+				clock.set_timing_index(0);
+				clock.add_measurement(steady_clock::now());
+			}
+			else if (i == nFrames) {
+				clock.set_timing_prefix("SIGNAL_");
+				clock.set_timing_index(0);
+				clock.add_measurement(steady_clock::now());
+			}
 		}
-		else if (i == nFrames) {
-			clock.set_timing_prefix("SIGNAL_");
-			clock.set_timing_index(0);
-			clock.add_measurement(steady_clock::now());
-		}
-			
-		
-//		std::cout << "---------- Reading out Fowler sample: " << i + 1 << " ----------------" << std::endl;
-
-//std::cout << "[ " << dev->GetPixelCount() << "]" << i << std::endl;
-
+				
 		// wait until we read all data before moving on
 		// check that we read enough data and that we haven't rolled off the end and started the next frame
 		int currentPixelCount = lastPixelCount = dev->GetPixelCount();
@@ -483,25 +475,22 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 			lastPixelCount = currentPixelCount; 
 			currentPixelCount = dev->GetPixelCount();
 		}
-//std::cout << "[ " << dev->GetPixelCount() << "]" << i << std::endl;
 
-		clock.add_measurement(steady_clock::now());
+		// save the data to file 
+		if (i % (1 + nDropFrames) == 0) {
+			clock.add_measurement(steady_clock::now());
 
-
-//		std::cout << "Readout: " << i << " complete\n";
-
-		collectors[i]->update(pixelsToReadPerFrame);
-		threads.push_back(new std::thread(&DataCollector::data_save, collectors[i]));
+			collectors[i]->update(pixelsToReadPerFrame);
+			threads.push_back(new std::thread(&DataCollector::data_save, collectors[i]));
+		}
 
 		lastPixelCount = pixelsToReadPerFrame;
 		totalPixelCount += pixelsToReadPerFrame;
 
-//		std::cout << "Total pixels read: "  << totalPixelCount << std::endl;
 		i++;
 	}
 
 
-//	auto ut_end = steady_clock::now();
 
 	std::cerr << "Total loops = " << loops << '\n';
 	std::cerr << "Joining threads\n";
@@ -516,8 +505,6 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 	clock.json_set_gmtime(pdu, "UTSTART", ut_start); 
 	clock.json_set_gmtime(pdu, "UTEND", ut_end);
 
-//	auto realExpTime = std::chrono::duration_cast<seconds>(ut_end - ut_start); 
-//	std::chrono::duration<double> realExpTime = ut_end - ut_start;
 
 	auto add_measurements = [timing](std::string label, double diff) { json_object_object_add(timing, label.c_str(), json_object_new_double(diff)); };
 
@@ -882,22 +869,24 @@ int controllerInterface::biasHigh() {
 	return 0;
 }
 
-int controllerInterface::setExposure(double fowlerSamples, double adcSamples, double exposureTime, int coadds) {
+int controllerInterface::setExposure(double fowlerSamples, double adcSamples, double exposureTime, int coadds, int drop_frames) {
 
 	if (fowlerSamples < 1) fowlerSamples = 1;
+	if (drop_frames < 0) drop_frames = 0;
 	if (adcSamples < 1) adcSamples = 1;
 	if (exposureTime < 0) exposureTime = 0;
 	if (coadds < 1) coadds = 1;
 
 
 	mode.frames = fowlerSamples;
+	mode.drop_frames = drop_frames;
 	mode.nadcs = adcSamples;
 	mode.exposure = exposureTime;
 	mode.nrows = ROWS_PER_FRAME;
-        mode.ncols = COLS_PER_FRAME * mode.nadcs; 
+    mode.ncols = COLS_PER_FRAME * mode.nadcs; 
 	mode.coadds = coadds;
 
-	std::cout << "Fowler samples: " << mode.frames << " ADCs: " << mode.nadcs << " Exposure time: " << mode.exposure << std::endl;
+	std::cout << "Fowler samples: " << mode.frames << " ADCs: " << mode.nadcs << " Exposure time: " << mode.exposure << " Drop frams: " << mode.drop_frames << std::endl;
 
 	return 0;
 }

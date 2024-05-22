@@ -23,6 +23,7 @@ struct ReadoutConfig {
 	unsigned ncols;
 	unsigned nadcs;
 	unsigned frames;
+	unsigned drop_frames;
 	float exposure;
     char wellDepth;
 	int coadds;
@@ -48,7 +49,7 @@ public:
 	int biasLow();
 	int biasMed();
 	int biasHigh();
-	int setExposure(double fowlserSamples, double adcSamples, double exposureTime, int coadds);
+	int setExposure(double fowlserSamples, double adcSamples, double exposureTime, int coadds, int skip_frames);
 	void setAladdinIII(bool isAladdinIII);
     int startExposure(double temp1, double temp2, bool raw);	
 	int startExposureBlock(double temp1, double temp2, bool raw); 
@@ -80,7 +81,7 @@ public:
 
     std::mutex clockoutMutex;
 
-	ReadoutConfig mode{"", ALADDINII_LOD_NAME, 512, 2048, 1, 1, 0.0, 'M', 1};
+	ReadoutConfig mode{"", ALADDINII_LOD_NAME, 512, 2048, 1, 1, 0, 0.0, 'M', 1};
 
 	std::string version();
 
@@ -133,7 +134,7 @@ public:
 	int biasLow() 									{cout << "biasLow" << endl;return 0;}
 	int biasMed() 									{cout << "biasMed" << endl;return 0;}
 	int biasHigh() 									{cout << "biasHigh" << endl;}
-	int setExposure(double fowlserSamples, double adcSamples, double exposureTime, int coadds){cout << "setExposure lnr: " << fowlserSamples << " adc: " << adcSamples << " exposureTime: " << exposureTime << " coadds: " << coadds << endl;return 0;}
+	int setExposure(double fowlserSamples, double adcSamples, double exposureTime, int coadds, int skip_frames){cout << "setExposure lnr: " << fowlserSamples << " adc: " << adcSamples << " exposureTime: " << exposureTime << " coadds: " << coadds << " skip frames: " << skip_frames << endl;return 0;}
 	void setAladdinIII(bool isAladdinIII)			{cout << "setAladdinIII" << endl;}
     int startExposure(double temp1, double temp2, bool raw) 	{cout << "startExposure" << endl;return 0;}
 	int startExposureBlock(double temp1, double temp2, bool raw) {cout << "startExposureBlock" << endl;return 0;}
@@ -165,6 +166,7 @@ PYBIND11_MODULE(libgnirsioc, m) {
 		.def_readwrite("ncols", &ReadoutConfig::ncols)
 		.def_readwrite("nadcs", &ReadoutConfig::nadcs)
 		.def_readwrite("frames", &ReadoutConfig::frames)
+		.def_readwrite("drop_frames", &ReadoutConfig::drop_frames)
 		.def_readwrite("exposure", &ReadoutConfig::exposure)
 		.def_readwrite("wellDepth", &ReadoutConfig::wellDepth)
 		.def_readwrite("coadds", &ReadoutConfig::coadds);
