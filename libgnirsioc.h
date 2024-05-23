@@ -17,7 +17,7 @@ using namespace std;
 typedef enum BiasLevel { LOW, MEDIUM, HIGH } BiasLevel;
 
 bool gIsDebug = false;
-
+void setGlobalDebug(bool debug);
 
 struct ReadoutConfig {
 	std::string label;
@@ -79,8 +79,6 @@ public:
 	void resetArray();
 	void resetReadArray();
 	void readoutArray();
-
-	void setDebug(bool debug) { gIsDebug = debug; }
 
     std::mutex busyMutex;
 
@@ -162,6 +160,9 @@ PYBIND11_MODULE(libgnirsioc, m) {
 		.value("LOW", BiasLevel::LOW)
 		.value("MEDIUM", BiasLevel::MEDIUM)
 		.value("HIGH", BiasLevel::HIGH);
+
+    // Expose the setGlobalDebug function
+    m.def("setGlobalDebug", &setGlobalDebug, "Set the global debug flag");
 
 	py::class_<ReadoutConfig>(m, "ReadoutConfig")
 		.def(py::init<>())

@@ -37,6 +37,10 @@
 #define RRO			0x0052524f      // Reset then readout array 
 #define ROR			0x00524f52      // Reset then readout array 
 
+// Function to set the global variable
+void setGlobalDebug(bool debug) {
+    gIsDebug = debug;
+}
 
 
 Controller *gCont;
@@ -675,46 +679,25 @@ std::string get_uuid() {
 
 controllerInterface::controllerInterface() : exposureThread(NULL)  {
 
-/*
- 	gCont = new Controller(512, 12288);
-
-	reset = false;
-	debug = false;
-	clockoutAll = false;
-
-	//include_raw = false;
-	std::cout << "Connecting to Arc Controller \n";
-
-	try {
-		gCont->connect_device();
-
-		std::cout << "List of devices:\n";
-		for (auto st: gCont->device_list()) {
-			std::cout << "  " << st << '\n';
-		}
-	}
-	catch (const std::exception& e) {
-		std::cout << "Exception caught: " << e.what() << std::endl;
-		throw;
-	}
-*/
 
 	reset = false;
 	clockoutAll = false;
 	clockoutsEnabled = false;
 
-	this->allocController();
+	if (!gIsDebug) {
+		this->allocController();
 
-	this->connectDevice();
+		this->connectDevice();
 
-	this->listDevices();	
+		this->listDevices();
+	}	
 }
 
 
 
-controllerInterface::controllerInterface(std::string readoutPath, std::string lodPath) : controllerInterface() {
-	this->readoutPath = readoutPath;
-	this->lodPath = lodPath;	
+controllerInterface::controllerInterface(std::string readoutPath, std::string lodPath) {
+    this->readoutPath = readoutPath;
+    this->lodPath = lodPath;
 }
 
 
