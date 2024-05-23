@@ -484,6 +484,8 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 			currentPixelCount = dev->GetPixelCount();
 		}
 
+		if (gIsDebug) std::this_thread::sleep_for(std::chrono::milliseconds(msec));
+
 		// save the data to file 
 		if (i % (1 + nDropFrames) == 0) {
 			if (gIsDebug) std::cout << "Save frame: " << i << "\n";
