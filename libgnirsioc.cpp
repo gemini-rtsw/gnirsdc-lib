@@ -818,8 +818,11 @@ void controllerInterface::setAladdinIII(bool isAladdinIII) {
 
 bool controllerInterface::testDataLink() {
 	std::cout << "Testing Data Link \n"; 
+
+	bool result = 0;
 	
-	bool result = gCont->tdl_testing(123);
+	if (!gIsDebug)
+		result = gCont->tdl_testing(123);
 	
 	std::cout << "TDL:  " << result << "\n";
 
