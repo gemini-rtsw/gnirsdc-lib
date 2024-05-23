@@ -16,7 +16,7 @@ using namespace std;
 
 typedef enum BiasLevel { LOW, MEDIUM, HIGH } BiasLevel;
 
-bool gIsDebug = false;
+extern bool gIsDebug;
 void setGlobalDebug(bool debug);
 
 struct ReadoutConfig {

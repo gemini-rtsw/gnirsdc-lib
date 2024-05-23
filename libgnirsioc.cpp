@@ -37,6 +37,7 @@
 #define RRO			0x0052524f      // Reset then readout array 
 #define ROR			0x00524f52      // Reset then readout array 
 
+bool gIsDebug = false;
 // Function to set the global variable
 void setGlobalDebug(bool debug) {
     gIsDebug = debug;
