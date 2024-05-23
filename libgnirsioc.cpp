@@ -66,6 +66,7 @@ static constexpr unsigned lagBy = 1;
 
 bool gIsAladdinIII = false;
 
+
 using namespace arc::device;
 using namespace arc::deinterlace;
 
@@ -382,7 +383,6 @@ void
 Camera::expose(Controller* cont, float expTime, std::string basepath, std::string basename, CExpIFace* exp_iface, std::function<void(json_object* obj1, json_object* obj2)> processHeader)
 {
 	int msec = int( getExposureDelay(expTime) * 1000 );
-//	ExposurePhase status = ExposurePhase::FIRST_READOUT;
 
 	// Setting the exposure time
 	if (dev->Command( TIM_ID, SET, msec ) != DON) {
@@ -448,7 +448,13 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 	int lastPixelCount = 0;
 	long totalPixelCount = 0;
 	unsigned int i = 0;	
+
+	if (gIsDebug) std::cout << "Total Frames: " << nFrames * (1 + nDropFrames) << " Save Frames: " << nFrames << " Drop: " << nDropFrames << "\n";
+
 	while (i < nFrames * 2 * (1 + nDropFrames) && !isAbort) {
+
+		if (gIsDebug) std::cout << "Loop: " << i << "\n";
+
 
 		while (lastPixelCount >= dev->GetPixelCount() && !isAbort) {
 			lastPixelCount = dev->GetPixelCount();
@@ -456,6 +462,8 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 
 		// only do timing if we are going to save the data
 		if (i % (1 + nDropFrames) == 0) {
+			if (gIsDebug) std::cout << "Time frame: " << i << "\n";
+
 			if (i == 0) {
 				clock.set_timing_prefix("RESET_");
 				clock.set_timing_index(0);
@@ -471,13 +479,15 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 		// wait until we read all data before moving on
 		// check that we read enough data and that we haven't rolled off the end and started the next frame
 		int currentPixelCount = lastPixelCount = dev->GetPixelCount();
-		while (currentPixelCount < pixelsToReadPerFrame && currentPixelCount >= lastPixelCount && !isAbort) {
+		while (currentPixelCount < pixelsToReadPerFrame && currentPixelCount >= lastPixelCount && !isAbort && !gIsDebug) {
 			lastPixelCount = currentPixelCount; 
 			currentPixelCount = dev->GetPixelCount();
 		}
 
 		// save the data to file 
 		if (i % (1 + nDropFrames) == 0) {
+			if (gIsDebug) std::cout << "Save frame: " << i << "\n";
+
 			clock.add_measurement(steady_clock::now());
 
 			collectors[i]->update(pixelsToReadPerFrame);
@@ -688,7 +698,6 @@ controllerInterface::controllerInterface() : exposureThread(NULL)  {
 */
 
 	reset = false;
-	debug = false;
 	clockoutAll = false;
 	clockoutsEnabled = false;
 
@@ -1058,15 +1067,15 @@ int controllerInterface::expose() {
 		return -1;	
 	}	
 
-	if (debug) {
+	if (gIsDebug) {
 		std::cout << "Testing for mode: " << mode.label << '\n';
 	}
 	std::cout << "Exposing for " << mode.exposure << " seconds\n";
 
-	if (debug)
+	if (gIsDebug)
 		std::cout << "Exposing\n";
 
-	ExpIFace callbacks(debug);
+	ExpIFace callbacks(gIsDebug);
 
 	Camera camera(gCont->getDev(), mode);
 

@@ -16,6 +16,9 @@ using namespace std;
 
 typedef enum BiasLevel { LOW, MEDIUM, HIGH } BiasLevel;
 
+bool gIsDebug = false;
+
+
 struct ReadoutConfig {
 	std::string label;
 	std::string lod_file;
@@ -76,6 +79,8 @@ public:
 	void resetArray();
 	void resetReadArray();
 	void readoutArray();
+
+	void setDebug(bool debug) { gIsDebug = debug; }
 
     std::mutex busyMutex;
 
