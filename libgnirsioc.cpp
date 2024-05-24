@@ -37,10 +37,21 @@
 #define RRO			0x0052524f      // Reset then readout array 
 #define ROR			0x00524f52      // Reset then readout array 
 
+
+static constexpr int ROWS_BUFFER = 512;
+static constexpr int COLS_BUFFER = 12288; 
+
 bool gIsDebug = false;
+
+void* debugBuffer;
+
 // Function to set the global variable
 void setGlobalDebug(bool debug) {
     gIsDebug = debug;
+
+	if (gIsDebug) {
+		debugBuffer = malloc(ROWS_BUFFER * COLS_BUFFER * 2);
+	}
 }
 
 
@@ -390,17 +401,18 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 	int msec = int( getExposureDelay(expTime) * 1000 );
 
 	// Setting the exposure time
-	if (dev->Command( TIM_ID, SET, msec ) != DON) {
+	if (!gIsDebug && dev->Command( TIM_ID, SET, msec ) != DON) {
 		throw std::runtime_error("Set exposure time failed");
 	}
 
-	if (dev->Command( TIM_ID, SFS, nFrames * (1 + nDropFrames)) != DON) {
+	if (!gIsDebug && dev->Command( TIM_ID, SFS, nFrames * (1 + nDropFrames)) != DON) {
 		throw std::runtime_error("Set number of frames failed");
 	}
 
-	if (dev->Command( TIM_ID, SDS, nADCs) != DON) {
+	if (!gIsDebug && dev->Command( TIM_ID, SDS, nADCs) != DON) {
 		throw std::runtime_error("Set analog digital samples failed");
 	}
+	
 
 	unsigned long long loops = 0;
 	std::vector<std::thread *>threads;
@@ -424,10 +436,14 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 	json_object_object_add(pdu, "RAW_ROWS", json_object_new_int(dRows * nFrames * 2));
 	json_set_gmdate(pdu, "DATEOBS");
 
+	Pixel* buffer = (gIsDebug ? (Pixel *) debugBuffer : (Pixel *) dev->CommonBufferVA());
 
 	DataCollector *collectors[nFrames * 2];
+
 	for (unsigned i = 0; i < (nFrames * 2); i++) {
-		collectors[i] = new DataCollector((Pixel *)dev->CommonBufferVA(), dRows * dCols, dCols, basepath, basename, i);
+
+		collectors[i] = new DataCollector(buffer, dRows * dCols, dCols, basepath, basename, i);
+
 		json_object_array_add(samples, json_object_new_string(collectors[i]->getFileName().c_str()));
 	}
 
@@ -437,7 +453,7 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 	Clock clock;
 
 	// Start the exposure
-	if (dev->Command( TIM_ID, SEX ) != DON) {
+	if (!gIsDebug && dev->Command( TIM_ID, SEX ) != DON) {
 		throw std::runtime_error("Starting exposure failed");
 	}
 
@@ -461,8 +477,10 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 		if (gIsDebug) std::cout << "Loop: " << i << "\n";
 
 
-		while (lastPixelCount >= dev->GetPixelCount() && !isAbort) {
-			lastPixelCount = dev->GetPixelCount();
+		if (!gIsDebug) {
+			while (lastPixelCount >= dev->GetPixelCount() && !isAbort) {
+				lastPixelCount = dev->GetPixelCount();
+			}
 		}
 
 		// only do timing if we are going to save the data
@@ -483,13 +501,15 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 				
 		// wait until we read all data before moving on
 		// check that we read enough data and that we haven't rolled off the end and started the next frame
-		int currentPixelCount = lastPixelCount = dev->GetPixelCount();
-		while (currentPixelCount < pixelsToReadPerFrame && currentPixelCount >= lastPixelCount && !isAbort && !gIsDebug) {
-			lastPixelCount = currentPixelCount; 
-			currentPixelCount = dev->GetPixelCount();
+		if (!gIsDebug) {
+			int currentPixelCount = lastPixelCount = dev->GetPixelCount();
+			while (currentPixelCount < pixelsToReadPerFrame && currentPixelCount >= lastPixelCount && !isAbort) {
+				lastPixelCount = currentPixelCount; 
+				currentPixelCount = dev->GetPixelCount();
+			}
 		}
-
-		if (gIsDebug) std::this_thread::sleep_for(std::chrono::milliseconds(msec));
+		else 
+			std::this_thread::sleep_for(std::chrono::milliseconds(msec)); //simulate integration time
 
 		// save the data to file 
 		if (i % (1 + nDropFrames) == 0) {
@@ -664,7 +684,7 @@ void parse_cmd(int argc, char **argv, ReadoutConfig& mode, bool& reset, bool& de
 	}
 
 	mode.nrows = ROWS_PER_FRAME;
-        mode.ncols = COLS_PER_FRAME * mode.nadcs; 
+    mode.ncols = COLS_PER_FRAME * mode.nadcs; 
 }
 
 std::string get_uuid() {
@@ -685,6 +705,8 @@ controllerInterface::controllerInterface() : exposureThread(NULL)  {
 	clockoutAll = false;
 	clockoutsEnabled = false;
 
+    cout << "Allocating controller device \n";
+
 	if (!gIsDebug) {
 		this->allocController();
 
@@ -696,7 +718,7 @@ controllerInterface::controllerInterface() : exposureThread(NULL)  {
 
 
 
-controllerInterface::controllerInterface(std::string readoutPath, std::string lodPath) {
+controllerInterface::controllerInterface(std::string readoutPath, std::string lodPath) :  controllerInterface() {
     this->readoutPath = readoutPath;
     this->lodPath = lodPath;
 }
@@ -716,7 +738,8 @@ void controllerInterface::allocController() {
 	try {
 		std::cout << "Allocating Controller Memory Buffer.\n";
 
- 		gCont = new Controller(512, 12288);
+		gCont = new Controller(ROWS_BUFFER, COLS_BUFFER);
+
 	}
 	catch (const std::exception& e) {
 		std::cout << "Exception caught: " << e.what() << std::endl;
@@ -821,7 +844,9 @@ bool controllerInterface::testDataLink() {
 	std::cout << "Testing Data Link \n"; 
 
 	bool result = 0;
-	
+
+	cout << " debug: " << (gIsDebug? "TRUE" : "FALSE") << "\n";
+
 	if (!gIsDebug)
 		result = gCont->tdl_testing(123);
 	
@@ -1042,21 +1067,21 @@ int controllerInterface::expose() {
 			json_object_object_add(pdu, "P_MODE", json_object_new_string("STARE"));
 	};
 
-	try {	
-		if (gIsAladdinIII) {
-			gCont->set_size(mode.nrows + 1, mode.ncols);
+	if (!gIsDebug) {
+		try {	
+			if (gIsAladdinIII) {
+				gCont->set_size(mode.nrows + 1, mode.ncols);
+			}
+			else {
+				gCont->set_size(mode.nrows, mode.ncols);
+			};
 		}
-		else {
-			gCont->set_size(mode.nrows, mode.ncols);
-		};
-	}
-	catch (std::runtime_error& error) {
-		std::cout << "Error: " << error.what() << std::endl;
-		std::cout << "ARC currently reading out. Exiting this exposure. \n";
-		return -1;	
-	}	
+		catch (std::runtime_error& error) {
+			std::cout << "Error: " << error.what() << std::endl;
+			std::cout << "ARC currently reading out. Exiting this exposure. \n";
+			return -1;	
+		}	
 
-	if (gIsDebug) {
 		std::cout << "Testing for mode: " << mode.label << '\n';
 	}
 	std::cout << "Exposing for " << mode.exposure << " seconds\n";
