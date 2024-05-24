@@ -808,6 +808,9 @@ void controllerInterface::loadFirmware(std::string path) {
 
 int controllerInterface::init() {
 
+	if (gIsDebug)
+		return true;
+		
 	try {
 		this->resetDevice();
 
@@ -843,7 +846,7 @@ void controllerInterface::setAladdinIII(bool isAladdinIII) {
 bool controllerInterface::testDataLink() {
 	std::cout << "Testing Data Link \n"; 
 
-	bool result = 0;
+	bool result = 1;
 
 	cout << " debug: " << (gIsDebug? "TRUE" : "FALSE") << "\n";
 
