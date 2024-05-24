@@ -41,6 +41,8 @@
 static constexpr int ROWS_BUFFER = 512;
 static constexpr int COLS_BUFFER = 12288; 
 
+using Pixel = unsigned short;
+
 bool gIsDebug = false;
 
 void* debugBuffer;
@@ -50,7 +52,7 @@ void setGlobalDebug(bool debug) {
     gIsDebug = debug;
 
 	if (gIsDebug) {
-		debugBuffer = malloc(ROWS_BUFFER * COLS_BUFFER * 2);
+		debugBuffer = malloc(ROWS_BUFFER * COLS_BUFFER * sizeof(Pixel));
 	}
 }
 
@@ -65,7 +67,6 @@ using sys_time_point = std::chrono::time_point<system_clock>;
 using sty_time_point = std::chrono::time_point<steady_clock>;
 
 using std::to_string;
-using Pixel = unsigned short;
 
 static constexpr auto READ_TIMEOUT = 200;
 static constexpr int SDSU3_PON_BIT = 0x400000;
@@ -313,6 +314,40 @@ private:
 	std::string fileName;
 };
 
+
+DataCollector::DataCollector(Pixel *origin, size_t totalPixels, int cols, const std::string &basePath, const std::string &baseFileName, int buffNo)
+	: buffSize(totalPixels),
+	  mCols(cols),
+      currentOffset(0),
+	  origBuffer(origin)
+{
+    buffer = new Pixel[buffSize];
+	buffLimit = &buffer[buffSize];
+
+	fileName = baseFileName + std::string(".frame.") + to_string(buffNo);
+	path = basePath + fileName;
+}
+
+DataCollector::~DataCollector() {
+	delete buffer;
+}
+
+void DataCollector::data_save() const
+{
+
+	std::ofstream fs(path);
+
+	if (!fs) {
+		std::cerr << "Failed to open file: " << path << std::endl;
+		return;
+	}
+
+	fs.write((const char *)buffer, buffSize * sizeof(Pixel));
+	std::cerr << "saved buffer to file " << fileName << '\n';
+
+}
+
+
 #define cExpConst1 0.023850195
 #define cExpConst2 0.214065865
 
@@ -357,30 +392,6 @@ Camera::Camera(CArcDevice *pDevice, const ReadoutConfig &mode)
 {
 }
 
-DataCollector::DataCollector(Pixel *origin, size_t totalPixels, int cols, const std::string &basePath, const std::string &baseFileName, int buffNo)
-	: buffSize(totalPixels),
-	  mCols(cols),
-       	  currentOffset(0),
-	  origBuffer(origin)
-{
-       	buffer = new Pixel[buffSize];
-	buffLimit = &buffer[buffSize];
-
-	fileName = baseFileName + std::string(".frame.") + to_string(buffNo);
-	path = basePath + fileName;
-}
-
-DataCollector::~DataCollector() {
-	delete buffer;
-}
-
-void DataCollector::data_save() const
-{
-	std::ofstream fs(path);
-	fs.write((const char *)buffer, buffSize * sizeof(Pixel));
-	std::cerr << "saved buffer to file " << fileName << '\n';
-}
-
 struct Transfer {
 	DataCollector *collector;
 	size_t count;
@@ -406,14 +417,13 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 	}
 
 	if (!gIsDebug && dev->Command( TIM_ID, SFS, nFrames * (1 + nDropFrames)) != DON) {
-		throw std::runtime_error("Set number of frames failed");
+		throw std::runtime_error("Set number of fowlers failed");
 	}
 
 	if (!gIsDebug && dev->Command( TIM_ID, SDS, nADCs) != DON) {
 		throw std::runtime_error("Set analog digital samples failed");
 	}
 	
-
 	unsigned long long loops = 0;
 	std::vector<std::thread *>threads;
 
@@ -441,7 +451,6 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 	DataCollector *collectors[nFrames * 2];
 
 	for (unsigned i = 0; i < (nFrames * 2); i++) {
-
 		collectors[i] = new DataCollector(buffer, dRows * dCols, dCols, basepath, basename, i);
 
 		json_object_array_add(samples, json_object_new_string(collectors[i]->getFileName().c_str()));
@@ -469,12 +478,14 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 	int lastPixelCount = 0;
 	long totalPixelCount = 0;
 	unsigned int i = 0;	
+	unsigned int collector = 0;
 
-	if (gIsDebug) std::cout << "Total Frames: " << nFrames * (1 + nDropFrames) << " Save Frames: " << nFrames << " Drop: " << nDropFrames << "\n";
+	int totalFrames = nFrames * 2 * (1 + nDropFrames);
 
-	while (i < nFrames * 2 * (1 + nDropFrames) && !isAbort) {
+	if (gIsDebug) std::cout << "Total Frames: " << nFrames * (1 + nDropFrames) << " Total Fowlers/Save Frames: " << nFrames << " Drop: " << nDropFrames << "\n";
 
-		if (gIsDebug) std::cout << "Loop: " << i << "\n";
+	while (i < totalFrames && !isAbort) {
+		if (gIsDebug) std::cout << "Loop: " << i << " end: " << totalFrames << "\n";
 
 
 		if (!gIsDebug) {
@@ -485,8 +496,6 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 
 		// only do timing if we are going to save the data
 		if (i % (1 + nDropFrames) == 0) {
-			if (gIsDebug) std::cout << "Time frame: " << i << "\n";
-
 			if (i == 0) {
 				clock.set_timing_prefix("RESET_");
 				clock.set_timing_index(0);
@@ -499,26 +508,41 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 			}
 		}
 				
-		// wait until we read all data before moving on
-		// check that we read enough data and that we haven't rolled off the end and started the next frame
 		if (!gIsDebug) {
+			// wait until we read all data before moving on
+			// check that we read enough data and that we haven't rolled off the end and started the next frame
+
 			int currentPixelCount = lastPixelCount = dev->GetPixelCount();
 			while (currentPixelCount < pixelsToReadPerFrame && currentPixelCount >= lastPixelCount && !isAbort) {
 				lastPixelCount = currentPixelCount; 
 				currentPixelCount = dev->GetPixelCount();
 			}
 		}
-		else 
-			std::this_thread::sleep_for(std::chrono::milliseconds(msec)); //simulate integration time
+		else if (i == totalFrames / 2) {
+			std::cout << "Simulate integration time. Busy-waiting for " << msec << " ms\n";
 
+			auto start = std::chrono::high_resolution_clock::now();
+			auto end = start;
+			while (std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() < msec) {
+				end = std::chrono::high_resolution_clock::now();
+			}
+
+			std::cout << "Simulate integration time done.\n";
+		}
+		
 		// save the data to file 
 		if (i % (1 + nDropFrames) == 0) {
 			if (gIsDebug) std::cout << "Save frame: " << i << "\n";
 
 			clock.add_measurement(steady_clock::now());
 
-			collectors[i]->update(pixelsToReadPerFrame);
-			threads.push_back(new std::thread(&DataCollector::data_save, collectors[i]));
+
+			if (gIsDebug) std::cout << "Total collectors: " << nFrames * 2 << " Current collector: " << collector << "\n";
+
+			collectors[collector]->update(pixelsToReadPerFrame);
+			
+			threads.push_back(new std::thread(&DataCollector::data_save, collectors[collector]));
+			collector++;
 		}
 
 		lastPixelCount = pixelsToReadPerFrame;
@@ -561,6 +585,7 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 
 
 	if (processHeader) {
+		if (gIsDebug) std::cout << "Processing header\n";
 		processHeader(temperature, pdu);
 
 
@@ -572,7 +597,15 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 		std::ostringstream oss;
 		oss << basepath + basename << ".header";
 
+
+		if (gIsDebug) std::cout << "Header: " << basepath + basename << ".header\n";
+
 		std::ofstream ofs(oss.str());
+
+		if (!ofs) {
+			std::cerr << "Failed to open file: " << oss.str() << std::endl;
+		}
+
 		ofs << json_object_to_json_string_ext(json_output, JSON_C_TO_STRING_PRETTY) << '\n';
 		json_object_put(json_output);
 	}
@@ -912,7 +945,7 @@ int controllerInterface::setExposure(double fowlerSamples, double adcSamples, do
     mode.ncols = COLS_PER_FRAME * mode.nadcs; 
 	mode.coadds = coadds;
 
-	std::cout << "Fowler samples: " << mode.frames << " ADCs: " << mode.nadcs << " Exposure time: " << mode.exposure << " Drop frams: " << mode.drop_frames << std::endl;
+	std::cout << "Fowler samples: " << mode.frames << " ADCs: " << mode.nadcs << " Exposure time: " << mode.exposure << " Drop frames: " << mode.drop_frames << std::endl;
 
 	return 0;
 }
@@ -1070,6 +1103,7 @@ int controllerInterface::expose() {
 			json_object_object_add(pdu, "P_MODE", json_object_new_string("STARE"));
 	};
 
+
 	if (!gIsDebug) {
 		try {	
 			if (gIsAladdinIII) {
@@ -1087,16 +1121,21 @@ int controllerInterface::expose() {
 
 		std::cout << "Testing for mode: " << mode.label << '\n';
 	}
+
 	std::cout << "Exposing for " << mode.exposure << " seconds\n";
 
 	if (gIsDebug)
 		std::cout << "Exposing\n";
 
 	ExpIFace callbacks(gIsDebug);
+	if (gIsDebug) std::cout << "Debug 1 \n";
 
-	Camera camera(gCont->getDev(), mode);
+	arc::device::CArcDevice* dev = nullptr;
+	if (!gIsDebug) dev = gCont->getDev();
 
+	Camera camera(dev, mode);
 
+	if (gIsDebug) std::cout << "Debug 2 \n";
 
 	Camera::isAbort = false; //just incase abort is pressed while not in an exposure
 

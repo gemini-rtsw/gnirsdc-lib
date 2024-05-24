@@ -16,8 +16,8 @@ using namespace std;
 
 typedef enum BiasLevel { LOW, MEDIUM, HIGH } BiasLevel;
 
-bool gIsDebug = false;
-
+extern bool gIsDebug;
+void setGlobalDebug(bool debug);
 
 struct ReadoutConfig {
 	std::string label;
@@ -80,8 +80,6 @@ public:
 	void resetReadArray();
 	void readoutArray();
 
-	void setDebug(bool debug) { gIsDebug = debug; }
-
     std::mutex busyMutex;
 
     std::mutex clockoutMutex;
@@ -138,7 +136,7 @@ public:
 	bool testDataLink() 							{cout << "TDL" << endl;return 0;}
 	int biasLow() 									{cout << "biasLow" << endl;return 0;}
 	int biasMed() 									{cout << "biasMed" << endl;return 0;}
-	int biasHigh() 									{cout << "biasHigh" << endl;}
+	int biasHigh() 									{cout << "biasHigh" << endl;return 0;}
 	int setExposure(double fowlserSamples, double adcSamples, double exposureTime, int coadds, int skip_frames){cout << "setExposure lnr: " << fowlserSamples << " adc: " << adcSamples << " exposureTime: " << exposureTime << " coadds: " << coadds << " skip frames: " << skip_frames << endl;return 0;}
 	void setAladdinIII(bool isAladdinIII)			{cout << "setAladdinIII" << endl;}
     int startExposure(double temp1, double temp2, bool raw) 	{cout << "startExposure" << endl;return 0;}
@@ -162,6 +160,9 @@ PYBIND11_MODULE(libgnirsioc, m) {
 		.value("LOW", BiasLevel::LOW)
 		.value("MEDIUM", BiasLevel::MEDIUM)
 		.value("HIGH", BiasLevel::HIGH);
+
+    // Expose the setGlobalDebug function
+    m.def("setGlobalDebug", &setGlobalDebug, "Set the global debug flag");
 
 	py::class_<ReadoutConfig>(m, "ReadoutConfig")
 		.def(py::init<>())

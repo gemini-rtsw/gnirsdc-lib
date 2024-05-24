@@ -136,7 +136,7 @@ public:
 	bool testDataLink() 							{cout << "TDL" << endl;return 0;}
 	int biasLow() 									{cout << "biasLow" << endl;return 0;}
 	int biasMed() 									{cout << "biasMed" << endl;return 0;}
-	int biasHigh() 									{cout << "biasHigh" << endl;}
+	int biasHigh() 									{cout << "biasHigh" << endl;return 0;}
 	int setExposure(double fowlserSamples, double adcSamples, double exposureTime, int coadds, int skip_frames){cout << "setExposure lnr: " << fowlserSamples << " adc: " << adcSamples << " exposureTime: " << exposureTime << " coadds: " << coadds << " skip frames: " << skip_frames << endl;return 0;}
 	void setAladdinIII(bool isAladdinIII)			{cout << "setAladdinIII" << endl;}
     int startExposure(double temp1, double temp2, bool raw) 	{cout << "startExposure" << endl;return 0;}
