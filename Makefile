@@ -2,7 +2,7 @@ $(shell echo -e "#include \"version.h\"\n\nchar const *const GIT_COMMIT = \"$$(g
 
 PYTHON_INCLUDES=$(shell python3.9-config --includes)
 
-CPPFLAGS=-std=c++11 -I./include -I/usr/include/json-c $(PYTHON_INCLUDES) -Wall -fPIC
+CPPFLAGS=-std=c++11 -I./include -I/usr/local/lib/python3.9/site-packages/pybind11/include -I/usr/include/json-c $(PYTHON_INCLUDES) -Wall -fPIC
 
 LDFLAGS=-L./lib  -Wl,-rpath,'$ORIGIN' -shared
 LDLIBS=-lCArcDevice -lCArcDeinterlace -lCArcFitsFile -lcfitsio -ljson-c -luuid -lpthread
