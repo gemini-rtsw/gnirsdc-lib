@@ -19,7 +19,7 @@ LABEL date="2023-10-11"
 RUN dnf install -y python39 python39-devel python3-pip epel-release && \
     dnf -y update && \
     dnf config-manager --set-enabled powertools  && \
-    dnf -y install json-c-devel libuuid-devel pybind11-devel gcc-c++ make git
+    dnf -y install json-c-devel libuuid-devel gcc-c++ make git
 
 RUN python3.9 -m pip install pybind11
 
