@@ -494,7 +494,6 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 			}
 		}
 
-		// only do timing if we are going to save the data
 		if (i == 0) {
 			clock.set_timing_prefix("RESET_");
 			clock.set_timing_index(0);
