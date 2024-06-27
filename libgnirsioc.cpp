@@ -501,7 +501,7 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 		}
 		
 		if ((i == nFrames) && (i % (1 + nDropFrames) == 0)) { // don't add the signal prefix if doing up the ramp
-			clock.set_timing_prefix("SIGNAL_");
+			clock.set_timing_prefix("SIGNL_");
 			clock.set_timing_index(0);
 			clock.add_measurement(steady_clock::now());
 		}
@@ -561,7 +561,7 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 	std::cerr << "Writing header\n";
 
 	auto ut_start = clock.getMeasurementTime("RESET_", 0);
-	auto ut_end = clock.getMeasurementTime("SIGNAL_", nFrames);
+	auto ut_end = clock.getMeasurementTime("SIGNL_", nFrames);
 	clock.json_set_gmtime(pdu, "UTSTART", ut_start); 
 	clock.json_set_gmtime(pdu, "UTEND", ut_end);
 
@@ -574,7 +574,7 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 
 	// sum exposure times at the time the last pixel of a readout is recieved
 	for (unsigned int i = 1; i <= nFrames; i++ ) {
-		aveExposure += clock.getMeasurementDelta("SIGNAL_", i) - clock.getMeasurementDelta("RESET_", i);
+		aveExposure += clock.getMeasurementDelta("SIGNL_", i) - clock.getMeasurementDelta("RESET_", i);
 	}
 	aveExposure /= nFrames;
 
