@@ -495,19 +495,18 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 		}
 
 		// only do timing if we are going to save the data
-		if (i % (1 + nDropFrames) == 0) {
-			if (i == 0) {
-				clock.set_timing_prefix("RESET_");
-				clock.set_timing_index(0);
-				clock.add_measurement(steady_clock::now());
-			}
-			
-			if ((i == nFrames) && (i % (1 + nDropFrames) == 0)) { // don't add the signal prefix if doing up the ramp
-				clock.set_timing_prefix("SIGNAL_");
-				clock.set_timing_index(0);
-				clock.add_measurement(steady_clock::now());
-			}
+		if (i == 0) {
+			clock.set_timing_prefix("RESET_");
+			clock.set_timing_index(0);
+			clock.add_measurement(steady_clock::now());
 		}
+		
+		if ((i == nFrames) && (i % (1 + nDropFrames) == 0)) { // don't add the signal prefix if doing up the ramp
+			clock.set_timing_prefix("SIGNAL_");
+			clock.set_timing_index(0);
+			clock.add_measurement(steady_clock::now());
+		}
+		
 				
 		if (!gIsDebug) {
 			// wait until we read all data before moving on
