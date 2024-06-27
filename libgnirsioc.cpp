@@ -501,7 +501,8 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 				clock.set_timing_index(0);
 				clock.add_measurement(steady_clock::now());
 			}
-			else if (i == nFrames) {
+			
+			if ((i == nFrames) && (i % (1 + nDropFrames) == 0)) { // don't add the signal prefix if doing up the ramp
 				clock.set_timing_prefix("SIGNAL_");
 				clock.set_timing_index(0);
 				clock.add_measurement(steady_clock::now());
