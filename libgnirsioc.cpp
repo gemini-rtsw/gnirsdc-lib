@@ -500,7 +500,7 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 			clock.add_measurement(steady_clock::now());
 		}
 		
-		if ((i == nFrames) && (i % (1 + nDropFrames) == 0)) { // don't add the signal prefix if doing up the ramp
+		if (i == nFrames) {
 			clock.set_timing_prefix("SIGNL_");
 			clock.set_timing_index(0);
 			clock.add_measurement(steady_clock::now());
@@ -576,6 +576,7 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 	for (unsigned int i = 1; i <= nFrames; i++ ) {
 		aveExposure += clock.getMeasurementDelta("SIGNL_", i) - clock.getMeasurementDelta("RESET_", i);
 	}
+
 	aveExposure /= nFrames;
 
 	json_object_object_add(pdu, "EXPTIME", json_object_new_double(aveExposure));
