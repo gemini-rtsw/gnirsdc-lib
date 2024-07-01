@@ -495,7 +495,7 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 			}
 		}
 
-		if (readUpTheRamp == true) {
+		if (readUpTheRamp == true && i == 0) {
 			clock.set_timing_prefix("INTG_");
 			clock.set_timing_index(0);
 			clock.add_measurement(steady_clock::now());
