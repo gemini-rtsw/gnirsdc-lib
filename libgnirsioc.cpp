@@ -500,15 +500,17 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 			clock.set_timing_index(0);
 			clock.add_measurement(steady_clock::now());
 		}
-		else if (i == 0) {
-			clock.set_timing_prefix("RSET_");
-			clock.set_timing_index(0);
-			clock.add_measurement(steady_clock::now());
-		}
-		else if (i == totalFrames / 2) {
-			clock.set_timing_prefix("SGNL_");
-			clock.set_timing_index(0);
-			clock.add_measurement(steady_clock::now());
+		else {
+			if (i == 0) {
+				clock.set_timing_prefix("RSET_");
+				clock.set_timing_index(0);
+				clock.add_measurement(steady_clock::now());
+			}
+			else if (i == totalFrames / 2) {
+				clock.set_timing_prefix("SGNL_");
+				clock.set_timing_index(0);
+				clock.add_measurement(steady_clock::now());
+			}
 		}
 		
 				
@@ -565,8 +567,17 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 	}
 	std::cerr << "Writing header\n";
 
-	auto ut_start = clock.getMeasurementTime("RESET_", 0);
-	auto ut_end = clock.getMeasurementTime("SIGNL_", nFrames);
+	sty_time_point ut_start;// = clock.getMeasurementTime("RSET_", 0);
+	sty_time_point ut_end;// = clock.getMeasurementTime("SGNL_", nFrames);
+
+	if (readUpTheRamp) {
+		ut_start = clock.getMeasurementTime("INTG_", 0);
+		ut_end = clock.getMeasurementTime("INTG_", nFrames);
+	}
+	else {
+		ut_start = clock.getMeasurementTime("RSET_", 0);
+		ut_end = clock.getMeasurementTime("SGNL_", nFrames);
+	}
 	clock.json_set_gmtime(pdu, "UTSTART", ut_start); 
 	clock.json_set_gmtime(pdu, "UTEND", ut_end);
 
@@ -579,7 +590,12 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 
 	// sum exposure times at the time the last pixel of a readout is recieved
 	for (unsigned int i = 1; i <= nFrames; i++ ) {
-		aveExposure += clock.getMeasurementDelta("SIGNL_", i) - clock.getMeasurementDelta("RESET_", i);
+		if (readUpTheRamp == true) {
+			aveExposure += clock.getMeasurementDelta("INTG_", i) - clock.getMeasurementDelta("INTG_", i-1);
+		}
+		else {
+			aveExposure += clock.getMeasurementDelta("SGNL_", i) - clock.getMeasurementDelta("RSET_", i);
+		}
 	}
 
 	aveExposure /= nFrames;

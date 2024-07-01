@@ -30,6 +30,7 @@ struct ReadoutConfig {
 	float exposure;
     char wellDepth;
 	int coadds;
+	bool read_up_the_ramp;
 };
 
 namespace py = pybind11;
@@ -52,7 +53,7 @@ public:
 	int biasLow();
 	int biasMed();
 	int biasHigh();
-	int setExposure(double fowlserSamples, double adcSamples, double exposureTime, int coadds, int skip_frames);
+	int setExposure(double fowlserSamples, double adcSamples, double exposureTime, int coadds, int drop_frames);
 	void setAladdinIII(bool isAladdinIII);
     int startExposure(double temp1, double temp2, bool raw);	
 	int startExposureBlock(double temp1, double temp2, bool raw); 
@@ -62,8 +63,9 @@ public:
 	void setReadingOut(bool readingState) { readingOut = readingState; };
 	bool getReadingOut() { return readingOut; };
 
-
-
+	void setReadUpTheRamp(bool mode) {
+		readUpTheRamp = mode;
+	}
 
 
     void setClockoutAll(bool isAll) {
@@ -98,7 +100,9 @@ private:
 	std::string readoutPath{"/readout_data/"};
 	std::string lodPath{"./firmware/"};
 	bool reset;
-	bool debug;
+//	bool debug;
+
+	bool readUpTheRamp;
 
 	void clockoutFunct();
 	bool clockoutAll;
@@ -137,7 +141,7 @@ public:
 	int biasLow() 									{cout << "biasLow" << endl;return 0;}
 	int biasMed() 									{cout << "biasMed" << endl;return 0;}
 	int biasHigh() 									{cout << "biasHigh" << endl;return 0;}
-	int setExposure(double fowlserSamples, double adcSamples, double exposureTime, int coadds, int skip_frames){cout << "setExposure lnr: " << fowlserSamples << " adc: " << adcSamples << " exposureTime: " << exposureTime << " coadds: " << coadds << " skip frames: " << skip_frames << endl;return 0;}
+	int setExposure(double fowlserSamples, double adcSamples, double exposureTime, int coadds, int drop_frames){cout << "setExposure lnr: " << fowlserSamples << " adc: " << adcSamples << " exposureTime: " << exposureTime << " coadds: " << coadds << " drop frames: " << drop_frames << endl;return 0;}
 	void setAladdinIII(bool isAladdinIII)			{cout << "setAladdinIII" << endl;}
     int startExposure(double temp1, double temp2, bool raw) 	{cout << "startExposure" << endl;return 0;}
 	int startExposureBlock(double temp1, double temp2, bool raw) {cout << "startExposureBlock" << endl;return 0;}
@@ -207,7 +211,9 @@ PYBIND11_MODULE(libgnirsioc, m) {
 		.def("continuousClockoutsStop", &controllerInterface::continuousClockoutsStop)
 		.def("resetArray", &controllerInterface::resetArray)
 		.def("resetReadArray", &controllerInterface::resetReadArray)
-		.def("readoutArray", &controllerInterface::readoutArray);
+		.def("readoutArray", &controllerInterface::readoutArray)
+		.def("setReadUpTheRamp", &controllerInterface::setReadUpTheRamp);
+
 
 
 	py::class_<controllerInterfaceDebug>(m, "controllerInterfaceDebug")
