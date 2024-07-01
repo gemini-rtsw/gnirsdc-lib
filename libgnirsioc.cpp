@@ -366,6 +366,7 @@ private:
 	unsigned nFrames;
 	unsigned nADCs;
 	unsigned nDropFrames;
+	bool readUpTheRamp;
 
 	double getExposureOverhead(double fowlers, double  ADCs) {
 		return (cExpConst1 + cExpConst2 * ADCs) * fowlers;
@@ -387,8 +388,8 @@ Camera::Camera(CArcDevice *pDevice, const ReadoutConfig &mode)
 	  dCols(mode.ncols),
 	  nFrames(mode.frames),
 	  nADCs(mode.nadcs),
-	  nDropFrames(mode.drop_frames)
-
+	  nDropFrames(mode.drop_frames),
+	  readUpTheRamp(mode.read_up_the_ramp)
 {
 }
 
@@ -494,14 +495,18 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 			}
 		}
 
-		if (i == 0) {
-			clock.set_timing_prefix("RESET_");
+		if (readUpTheRamp == true) {
+			clock.set_timing_prefix("INTG_");
 			clock.set_timing_index(0);
 			clock.add_measurement(steady_clock::now());
 		}
-		
-		if (i == nFrames) {
-			clock.set_timing_prefix("SIGNL_");
+		else if (i == 0) {
+			clock.set_timing_prefix("RSET_");
+			clock.set_timing_index(0);
+			clock.add_measurement(steady_clock::now());
+		}
+		else if (i == totalFrames / 2) {
+			clock.set_timing_prefix("SGNL_");
 			clock.set_timing_index(0);
 			clock.add_measurement(steady_clock::now());
 		}
@@ -946,6 +951,7 @@ int controllerInterface::setExposure(double fowlerSamples, double adcSamples, do
 	mode.nrows = ROWS_PER_FRAME;
     mode.ncols = COLS_PER_FRAME * mode.nadcs; 
 	mode.coadds = coadds;
+	mode.read_up_the_ramp = this->readUpTheRamp;
 
 	std::cout << "Fowler samples: " << mode.frames << " ADCs: " << mode.nadcs << " Exposure time: " << mode.exposure << " Drop frames: " << mode.drop_frames << std::endl;
 
