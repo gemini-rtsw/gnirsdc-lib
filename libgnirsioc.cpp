@@ -177,7 +177,7 @@ public:
 	void set_timing_index(unsigned new_t_index) { t_index = new_t_index; }
 	unsigned timing_index() const { return t_index; }
 	void add_measurement(sty_time_point measurement, bool increment_index=true) {
-		measurements[t_prefix + left_justify(to_string(t_index), 4, '0')] = measurement;
+		measurements[t_prefix + left_justify(to_string(t_index), 3, '0')] = measurement;
 		if (increment_index)
 			t_index++;
 	}
@@ -197,11 +197,11 @@ public:
 	}
 
 	double getMeasurementDelta(std::string prefix, int index) {
-		return double((measurements[prefix + left_justify(to_string(index), 4, '0')] - sty_clock_ref).count()) / 1000000000;
+		return double((measurements[prefix + left_justify(to_string(index), 3, '0')] - sty_clock_ref).count()) / 1000000000;
 	}
 
 	sty_time_point getMeasurementTime(std::string prefix, int index) {
-		return measurements[prefix + left_justify(to_string(index), 4, '0')];
+		return measurements[prefix + left_justify(to_string(index), 3, '0')];
 	}
 
 private:
