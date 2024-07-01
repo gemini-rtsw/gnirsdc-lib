@@ -62,8 +62,9 @@ public:
 	void setReadingOut(bool readingState) { readingOut = readingState; };
 	bool getReadingOut() { return readingOut; };
 
-
-
+	void setReadUpTheRamp(bool mode) {
+		readUpTheRamp = mode;
+	}
 
 
     void setClockoutAll(bool isAll) {
@@ -98,7 +99,9 @@ private:
 	std::string readoutPath{"/readout_data/"};
 	std::string lodPath{"./firmware/"};
 	bool reset;
-	bool debug;
+//	bool debug;
+
+	bool readUpTheRamp;
 
 	void clockoutFunct();
 	bool clockoutAll;
@@ -207,7 +210,9 @@ PYBIND11_MODULE(libgnirsioc, m) {
 		.def("continuousClockoutsStop", &controllerInterface::continuousClockoutsStop)
 		.def("resetArray", &controllerInterface::resetArray)
 		.def("resetReadArray", &controllerInterface::resetReadArray)
-		.def("readoutArray", &controllerInterface::readoutArray);
+		.def("readoutArray", &controllerInterface::readoutArray)
+		.def("setReadUpTheRamp", &controllerInterface::setReadUpTheRamp);
+
 
 
 	py::class_<controllerInterfaceDebug>(m, "controllerInterfaceDebug")

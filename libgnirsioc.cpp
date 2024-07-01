@@ -738,6 +738,8 @@ controllerInterface::controllerInterface() : exposureThread(NULL)  {
 	clockoutAll = false;
 	clockoutsEnabled = false;
 
+	readUpTheRamp = false;
+
     cout << "Allocating controller device \n";
 
 	if (!gIsDebug) {
