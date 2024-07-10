@@ -401,9 +401,9 @@ struct Transfer {
 void
 Camera::abort() {
 	isAbort = true;
-        if (dev->Command( TIM_ID, AEX ) != DON) {
-                throw std::runtime_error("Aborting exposure failed");
-        }
+    if (!gIsDebug && dev->Command( TIM_ID, AEX ) != DON) {
+	    throw std::runtime_error("Aborting exposure failed");
+    }
 }
 
 
@@ -1000,8 +1000,11 @@ int controllerInterface::startExposureBlock(double temp1, double temp2, bool raw
 
 void controllerInterface::abortExposure() {
 	std::cout << "Trying to abort\n";
-	Camera camera(gCont->getDev(), mode);
 
+	arc::device::CArcDevice* dev = nullptr;
+	if (!gIsDebug) dev = gCont->getDev();
+
+	Camera camera(dev, mode);
 
 	try {
 		camera.abort();	
