@@ -249,7 +249,7 @@ void json_set_datalabel(json_object *job, std::string prefix, unsigned nFrames, 
 	name = prefix + "-" + to_string(nFrames) + "x" + to_string(nFrames)
 	       	      + "-" + to_string(nADCs) + "ds" +
 		      + "-" + get_date() + "-" + get_time();
-	json_object_object_add(job, "DATALABE", json_object_new_string(name.c_str()));
+	json_object_object_add(job, "RAWLABEL", json_object_new_string(name.c_str()));
 }
 
 class DataCollector {
@@ -442,7 +442,7 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 	json_object_object_add(json_output, "TEMPERATURE", temperature);
 
 	json_object_object_add(pdu, "CAMERA", json_object_new_string("GNIRS"));
-	json_set_datalabel(pdu, "test-image", nFrames, nADCs);
+	json_set_datalabel(pdu, "", nFrames, nADCs);
 	json_object_object_add(pdu, "LNRS", json_object_new_int(nFrames));
 	json_object_object_add(pdu, "NDAVGS", json_object_new_int(nADCs));
 	json_object_object_add(pdu, "RAW_COLS", json_object_new_int(dCols));
