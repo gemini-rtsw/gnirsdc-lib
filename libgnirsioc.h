@@ -53,7 +53,7 @@ public:
 	int biasLow();
 	int biasMed();
 	int biasHigh();
-	int setExposure(double fowlserSamples, double adcSamples, double exposureTime, int coadds, int drop_frames);
+	int setExposure(double fowlserSamples, double adcSamples, double exposureTime, int coadds, int drop_frames, std::string datalabel);
 	void setAladdinIII(bool isAladdinIII);
     int startExposure(double temp1, double temp2, bool raw);	
 	int startExposureBlock(double temp1, double temp2, bool raw); 
@@ -86,7 +86,7 @@ public:
 
     std::mutex clockoutMutex;
 
-	ReadoutConfig mode{"", ALADDINII_LOD_NAME, 512, 2048, 1, 1, 0, 0.0, 'M', 1};
+	ReadoutConfig mode{"defaul-label", ALADDINII_LOD_NAME, 512, 2048, 1, 1, 0, 0.0, 'M', 1};
 
 	std::string version();
 
@@ -141,7 +141,7 @@ public:
 	int biasLow() 									{cout << "biasLow" << endl;return 0;}
 	int biasMed() 									{cout << "biasMed" << endl;return 0;}
 	int biasHigh() 									{cout << "biasHigh" << endl;return 0;}
-	int setExposure(double fowlserSamples, double adcSamples, double exposureTime, int coadds, int drop_frames){cout << "setExposure lnr: " << fowlserSamples << " adc: " << adcSamples << " exposureTime: " << exposureTime << " coadds: " << coadds << " drop frames: " << drop_frames << endl;return 0;}
+	int setExposure(double fowlserSamples, double adcSamples, double exposureTime, int coadds, int drop_frames, std::string datalabel){cout << "setExposure lnr: " << fowlserSamples << " adc: " << adcSamples << " exposureTime: " << exposureTime << " coadds: " << coadds << " drop frames: " << drop_frames << endl;return 0;}
 	void setAladdinIII(bool isAladdinIII)			{cout << "setAladdinIII" << endl;}
     int startExposure(double temp1, double temp2, bool raw) 	{cout << "startExposure" << endl;return 0;}
 	int startExposureBlock(double temp1, double temp2, bool raw) {cout << "startExposureBlock" << endl;return 0;}

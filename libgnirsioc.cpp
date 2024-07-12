@@ -367,6 +367,7 @@ private:
 	unsigned nADCs;
 	unsigned nDropFrames;
 	bool readUpTheRamp;
+	std::string dataLabel;
 
 	double getExposureOverhead(double fowlers, double  ADCs) {
 		return (cExpConst1 + cExpConst2 * ADCs) * fowlers;
@@ -389,7 +390,8 @@ Camera::Camera(CArcDevice *pDevice, const ReadoutConfig &mode)
 	  nFrames(mode.frames),
 	  nADCs(mode.nadcs),
 	  nDropFrames(mode.drop_frames),
-	  readUpTheRamp(mode.read_up_the_ramp)
+	  readUpTheRamp(mode.read_up_the_ramp),
+	  dataLabel(mode.label)
 {
 }
 
@@ -953,7 +955,7 @@ int controllerInterface::biasHigh() {
 	return 0;
 }
 
-int controllerInterface::setExposure(double fowlerSamples, double adcSamples, double exposureTime, int coadds, int drop_frames) {
+int controllerInterface::setExposure(double fowlerSamples, double adcSamples, double exposureTime, int coadds, int drop_frames, std::string datalabel) {
 
 	if (fowlerSamples < 1) fowlerSamples = 1;
 	if (drop_frames < 0) drop_frames = 0;
@@ -970,6 +972,7 @@ int controllerInterface::setExposure(double fowlerSamples, double adcSamples, do
     mode.ncols = COLS_PER_FRAME * mode.nadcs; 
 	mode.coadds = coadds;
 	mode.read_up_the_ramp = this->readUpTheRamp;
+	mode.label = datalabel;
 
 	std::cout << "Fowler samples: " << mode.frames << " ADCs: " << mode.nadcs << " Exposure time: " << mode.exposure << " Drop frames: " << mode.drop_frames << std::endl;
 
@@ -1122,6 +1125,7 @@ int controllerInterface::expose() {
 			case HIGH: biasVolts = -3.2;break;
 		}
 
+		json_object_object_add(pdu, "LABEL", json_object_new_string(mode.label.c_str()));
 		json_object_object_add(pdu, "DETBIAS", json_object_new_double(-4.0 - biasVolts));
 		json_object_object_add(pdu, "DCVER", json_object_new_string(GIT_COMMIT));
 		json_object_object_add(pdu, "COADDS", json_object_new_int(mode.coadds));
@@ -1148,7 +1152,7 @@ int controllerInterface::expose() {
 			return -1;	
 		}	
 
-		std::cout << "Testing for mode: " << mode.label << '\n';
+		std::cout << "Data Label: " << mode.label << '\n';
 	}
 
 	std::cout << "Exposing for " << mode.exposure << " seconds\n";
