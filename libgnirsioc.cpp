@@ -533,7 +533,7 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 
 			auto start = std::chrono::high_resolution_clock::now();
 			auto end = start;
-			while (std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() < msec) {
+			while (std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() < msec && !isAbort) {
 				end = std::chrono::high_resolution_clock::now();
 			}
 
