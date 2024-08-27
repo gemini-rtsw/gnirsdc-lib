@@ -33,6 +33,17 @@ struct ReadoutConfig {
 	bool read_up_the_ramp;
 };
 
+struct TCSContext {
+    std::string track_ra;
+    std::string track_dec;
+    std::string track_frame;
+    std::string track_equinox;
+    std::string time_tai;
+    std::string port;
+    std::string camera;
+    std::string ao;
+};
+
 namespace py = pybind11;
 
 class controllerInterface {
@@ -90,7 +101,7 @@ public:
 
 	std::string version();
 
-
+    void setTCSContext(const TCSContext& tcs_context);
 
 private:
 	void exposeFunct();
@@ -119,6 +130,8 @@ private:
 	bool readingOut;
 
 	std::thread* exposureThread;
+
+    TCSContext current_tcs_context;
 };
 
 
@@ -182,6 +195,17 @@ PYBIND11_MODULE(libgnirsioc, m) {
 		.def_readwrite("coadds", &ReadoutConfig::coadds);
 		
 
+    py::class_<TCSContext>(m, "TCSContext")
+        .def(py::init<>())
+        .def_readwrite("track_ra", &TCSContext::track_ra)
+        .def_readwrite("track_dec", &TCSContext::track_dec)
+        .def_readwrite("track_frame", &TCSContext::track_frame)
+        .def_readwrite("track_equinox", &TCSContext::track_equinox)
+        .def_readwrite("time_tai", &TCSContext::time_tai)
+        .def_readwrite("port", &TCSContext::port)
+        .def_readwrite("camera", &TCSContext::camera)
+        .def_readwrite("ao", &TCSContext::ao);
+
 	py::class_<controllerInterface>(m, "controllerInterface")
         .def(py::init<>()) 							// Default constructor
         .def(py::init<std::string, std::string>()) 	// Overloaded constructor
@@ -212,7 +236,8 @@ PYBIND11_MODULE(libgnirsioc, m) {
 		.def("resetArray", &controllerInterface::resetArray)
 		.def("resetReadArray", &controllerInterface::resetReadArray)
 		.def("readoutArray", &controllerInterface::readoutArray)
-		.def("setReadUpTheRamp", &controllerInterface::setReadUpTheRamp);
+		.def("setReadUpTheRamp", &controllerInterface::setReadUpTheRamp)
+        .def("setTCSContext", &controllerInterface::setTCSContext);
 
 
 
