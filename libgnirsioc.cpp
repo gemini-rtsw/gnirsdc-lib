@@ -40,6 +40,7 @@
 
 static constexpr int ROWS_BUFFER = 512;
 static constexpr int COLS_BUFFER = 12288; 
+static constexpr int ADC_BUFFER = 32; // This is only for debug
 
 using Pixel = unsigned short;
 
@@ -52,7 +53,7 @@ void setGlobalDebug(bool debug) {
     gIsDebug = debug;
 
 	if (gIsDebug) {
-		debugBuffer = malloc(ROWS_BUFFER * COLS_BUFFER * sizeof(Pixel));
+		debugBuffer = malloc(ROWS_BUFFER * COLS_BUFFER * ADC_BUFFER * sizeof(Pixel));
 	}
 }
 
