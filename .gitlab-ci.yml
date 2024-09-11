@@ -12,6 +12,8 @@ build_image:
     - docker:dind
   script:
     - docker build -t gnirsdc-lib-env -f Dockerfile_rocky8 .
+    - docker tag gnirsdc-lib-env registry.gitlab.com/nsf-noirlab/gemini/rtsw/iocs/gnirsdc-lib/gnirsdc-lib-env
+    - docker push registry.gitlab.com/nsf-noirlab/gemini/rtsw/iocs/gnirsdc-lib/gnirsdc-lib-env
     - docker run --rm -v $(pwd):/repo gnirsdc-lib-env bash -l -c "cd /repo && make clean all" 
     - git config --global user.email "$GITLAB_USER_EMAIL"
     - git config --global user.name "$GITLAB_USER_NAME"
