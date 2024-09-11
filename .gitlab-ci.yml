@@ -4,7 +4,8 @@ stages:
 
 before_script:
   - 'git remote set-url origin https://oauth2:$DEPLOY_TOKEN@gitlab.com/nsf-noirlab/gemini/rtsw/iocs/gnirsdc-lib.git'
-
+  - echo "Logging into GitLab Container Registry with deploy token..."
+  - echo $DEPLOY_TOKEN | docker login $CI_REGISTRY -u $DEPLOY_TOKEN --password-stdin
 build_image:
   stage: build
   image: docker:latest
