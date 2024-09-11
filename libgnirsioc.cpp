@@ -939,7 +939,7 @@ int controllerInterface::biasLow() {
 	std::cout << "Well Depth set to -3.6 \n";
 
 	currentBias = LOW;
-	if (gCont->getDev()->Command( TIM_ID, SBH ) != DON) { ///NOTE: bias labels are backwards SBH is shallow well
+	if (!gIsDebug && gCont->getDev()->Command( TIM_ID, SBH ) != DON) { ///NOTE: bias labels are backwards SBH is shallow well
 		throw std::runtime_error("Set bias voltage");
 	}
 
@@ -951,7 +951,7 @@ int controllerInterface::biasMed() {
 	std::cout << "Well Depth set to -3.4 \n";
 
 	currentBias = MEDIUM;
-	if (gCont->getDev()->Command( TIM_ID, SBV ) != DON) {
+	if (!gIsDebug && gCont->getDev()->Command( TIM_ID, SBV ) != DON) {
 		throw std::runtime_error("Set bias voltage");
 	}
 
@@ -963,7 +963,7 @@ int controllerInterface::biasHigh() {
 	std::cout << "Well Depth set to -3.2 \n";
    
 	currentBias = HIGH;
-	if (gCont->getDev()->Command( TIM_ID, SBL ) != DON) {   ///NOTE: bias labels are backwards SBL is deep well
+	if (!gIsDebug && gCont->getDev()->Command( TIM_ID, SBL ) != DON) {   ///NOTE: bias labels are backwards SBL is deep well
 		throw std::runtime_error("Set bias voltage");
 	}
 
