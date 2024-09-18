@@ -927,7 +927,7 @@ void controllerInterface::setTCSContext(const TCSContext& tcs_context) {
     std::cout << "  track_dec: " << current_tcs_context.track_dec << std::endl;
     std::cout << "  track_frame: " << current_tcs_context.track_frame << std::endl;
     std::cout << "  track_equinox: " << current_tcs_context.track_equinox << std::endl;
-    std::cout << "  time_tai: " << current_tcs_context.time_tai << std::endl;
+    std::cout << "  time: " << current_tcs_context.time << std::endl;
     std::cout << "  port: " << current_tcs_context.port << std::endl;
     std::cout << "  camera: " << current_tcs_context.camera << std::endl;
     std::cout << "  ao: " << current_tcs_context.ao << std::endl;
@@ -1155,7 +1155,7 @@ int controllerInterface::expose() {
         json_object_object_add(pdu, "TCS_DEC", json_object_new_string(this->current_tcs_context.track_dec.c_str()));
         json_object_object_add(pdu, "TCS_FRAME", json_object_new_string(this->current_tcs_context.track_frame.c_str()));
         json_object_object_add(pdu, "TCS_EQUINOX", json_object_new_string(this->current_tcs_context.track_equinox.c_str()));
-        json_object_object_add(pdu, "TCS_TAI", json_object_new_string(this->current_tcs_context.time_tai.c_str()));
+        json_object_object_add(pdu, "TCS_TIME", json_object_new_string(this->current_tcs_context.time.c_str()));
         json_object_object_add(pdu, "TCS_PORT", json_object_new_string(this->current_tcs_context.port.c_str()));
         json_object_object_add(pdu, "TCS_CAMERA", json_object_new_string(this->current_tcs_context.camera.c_str()));
         json_object_object_add(pdu, "TCS_AO", json_object_new_string(this->current_tcs_context.ao.c_str()));
