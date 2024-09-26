@@ -125,7 +125,7 @@ void print_help()
 		  << " -r		resets the controller as part of the setup\n"
 		  << " -a <#>		number of times to sample the ADCs [Default: 1]\n"
 		  << " -f <#>		number of Fowler samples (1 Fowler = reset and signal) [Default: 1]\n"
-		  << " -e <s>		expose for <s> seconds [Default: 0.0]\n"
+		  << " -e  		expose for   seconds [Default: 0.0]\n"
 		  << " -w <S|M|D>	set well depth to shallow (-3.2) medium (-3.4) deep (-3.6) [Default: medium]\n"
 		  << " -s <#>		number of exposures in coadds [Default: 1]\n";
 }
@@ -928,6 +928,7 @@ void controllerInterface::setTCSContext(const TCSContext& tcs_context) {
     std::cout << "  track_frame: " << current_tcs_context.track_frame << std::endl;
     std::cout << "  track_equinox: " << current_tcs_context.track_equinox << std::endl;
     std::cout << "  time: " << current_tcs_context.time << std::endl;
+    std::cout << "  inst_pa: " << current_tcs_context.inst_pa << std::endl;  
     std::cout << "  port: " << current_tcs_context.port << std::endl;
     std::cout << "  camera: " << current_tcs_context.camera << std::endl;
     std::cout << "  ao: " << current_tcs_context.ao << std::endl;
@@ -1156,6 +1157,7 @@ int controllerInterface::expose() {
         json_object_object_add(pdu, "TCS_FRAME", json_object_new_string(this->current_tcs_context.track_frame.c_str()));
         json_object_object_add(pdu, "TCS_EQUINOX", json_object_new_string(this->current_tcs_context.track_equinox.c_str()));
         json_object_object_add(pdu, "TCS_TIME", json_object_new_string(this->current_tcs_context.time.c_str()));
+        json_object_object_add(pdu, "TCS_PA", json_object_new_string(this->current_tcs_context.inst_pa.c_str()));  // Added inst_pa
         json_object_object_add(pdu, "TCS_PORT", json_object_new_string(this->current_tcs_context.port.c_str()));
         json_object_object_add(pdu, "TCS_CAMERA", json_object_new_string(this->current_tcs_context.camera.c_str()));
         json_object_object_add(pdu, "TCS_AO", json_object_new_string(this->current_tcs_context.ao.c_str()));

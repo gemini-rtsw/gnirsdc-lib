@@ -39,6 +39,7 @@ struct TCSContext {
     std::string track_frame;
     std::string track_equinox;
     std::string time;
+	std::string inst_pa;
     std::string port;
     std::string camera;
     std::string ao;
@@ -202,6 +203,7 @@ PYBIND11_MODULE(libgnirsioc, m) {
         .def_readwrite("track_frame", &TCSContext::track_frame)
         .def_readwrite("track_equinox", &TCSContext::track_equinox)
         .def_readwrite("time", &TCSContext::time)
+        .def_readwrite("inst_pa", &TCSContext::inst_pa)  
         .def_readwrite("port", &TCSContext::port)
         .def_readwrite("camera", &TCSContext::camera)
         .def_readwrite("ao", &TCSContext::ao);
@@ -268,5 +270,4 @@ PYBIND11_MODULE(libgnirsioc, m) {
 }
 
 #endif // __LIB_GNIRS_IOC__
- 
 
