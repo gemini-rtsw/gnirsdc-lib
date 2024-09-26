@@ -1157,7 +1157,7 @@ int controllerInterface::expose() {
         json_object_object_add(pdu, "TCS_FRAME", json_object_new_string(this->current_tcs_context.track_frame.c_str()));
         json_object_object_add(pdu, "TCS_EQUINOX", json_object_new_string(this->current_tcs_context.track_equinox.c_str()));
         json_object_object_add(pdu, "TCS_TIME", json_object_new_string(this->current_tcs_context.time.c_str()));
-        json_object_object_add(pdu, "TCS_PA", json_object_new_string(this->current_tcs_context.inst_pa.c_str()));  // Added inst_pa
+        json_object_object_add(pdu, "TCS_INST_PA", json_object_new_string(this->current_tcs_context.inst_pa.c_str()));  // Added inst_pa
         json_object_object_add(pdu, "TCS_PORT", json_object_new_string(this->current_tcs_context.port.c_str()));
         json_object_object_add(pdu, "TCS_CAMERA", json_object_new_string(this->current_tcs_context.camera.c_str()));
         json_object_object_add(pdu, "TCS_AO", json_object_new_string(this->current_tcs_context.ao.c_str()));
