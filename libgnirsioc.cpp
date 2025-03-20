@@ -892,7 +892,7 @@ int controllerInterface::powerOn() {
 	std::cout << "Powering on the controller\n";
 
 	try {
-		if (gCont->getDev()->Command( TIM_ID, PON ) != DON) { 
+		if (!gIsDebug && gCont->getDev()->Command( TIM_ID, PON ) != DON) { 
 			throw std::runtime_error("Power on failed");
 		}
 	}
@@ -909,7 +909,7 @@ int controllerInterface::powerOff() {
 	std::cout << "Powering off the controller\n";
 
 	try {
-		if (gCont->getDev()->Command( TIM_ID, POF ) != DON) { 
+		if (!gIsDebug && gCont->getDev()->Command( TIM_ID, POF ) != DON) { 
 			throw std::runtime_error("Power off failed");
 		}
 	}
