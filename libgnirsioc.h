@@ -220,6 +220,8 @@ PYBIND11_MODULE(libgnirsioc, m) {
 		.def("resetDevice", &controllerInterface::resetDevice)
 		.def("loadFirmware", &controllerInterface::loadFirmware)
 		.def("init", &controllerInterface::init)
+		.def("powerOn", &controllerInterface::powerOn)
+		.def("powerOff", &controllerInterface::powerOff)
 		.def("testDataLink", &controllerInterface::testDataLink)
 		.def("biasLow", &controllerInterface::biasLow)
 		.def("biasMed", &controllerInterface::biasMed)
@@ -249,6 +251,8 @@ PYBIND11_MODULE(libgnirsioc, m) {
 		.def(py::init<>())							// Default constructor
 	    .def(py::init<std::string, std::string>()) 	// Overloaded constructor
 		.def("init", &controllerInterfaceDebug::init)
+		.def("powerOn", &controllerInterfaceDebug::powerOn)
+		.def("powerOff", &controllerInterfaceDebug::powerOff)
 		.def("testDataLink", &controllerInterfaceDebug::testDataLink)
 		.def("biasLow", &controllerInterfaceDebug::biasLow)
 		.def("biasMed", &controllerInterfaceDebug::biasMed)

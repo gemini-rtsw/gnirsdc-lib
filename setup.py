@@ -33,7 +33,7 @@ class CustomInstall(install):
 
 setup(
     name='gnirsdc-lib',
-    version='0.1',
+    version='0.1.1',
     cmdclass={'install': CustomInstall},
     # other metadata
 )
