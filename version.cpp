@@ -1,3 +1,3 @@
 #include "version.h"
 
-char const *const GIT_COMMIT = "Seqexec-prod-test-4-11-94-g2790c64";
+char const *const GIT_COMMIT = "Seqexec-prod-test-4-11-98-gb43c214";
