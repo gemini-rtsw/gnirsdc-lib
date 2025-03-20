@@ -888,6 +888,39 @@ int controllerInterface::init() {
 	return true;
 }
 
+int controllerInterface::powerOn() {
+	std::cout << "Powering on the controller\n";
+
+	try {
+		if (gCont->getDev()->Command( TIM_ID, PON ) != DON) { 
+			throw std::runtime_error("Power on failed");
+		}
+	}
+	catch (std::runtime_error& e)
+	{
+		std::cerr << "Error when powering on the controller: " << e.what() << "\n";
+		return false;
+	}
+
+	return true;
+}	
+
+int controllerInterface::powerOff() {
+	std::cout << "Powering off the controller\n";
+
+	try {
+		if (gCont->getDev()->Command( TIM_ID, POF ) != DON) { 
+			throw std::runtime_error("Power off failed");
+		}
+	}
+	catch (std::runtime_error& e)
+	{
+		std::cerr << "Error when powering off the controller: " << e.what() << "\n";
+		return false;
+	}
+
+	return true;
+}	
 
 void controllerInterface::setAladdinIII(bool isAladdinIII) {
 

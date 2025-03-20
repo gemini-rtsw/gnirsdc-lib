@@ -61,6 +61,8 @@ public:
 
 
 	int init();
+	int powerOn();
+	int powerOff();
 	bool testDataLink();
 	int biasLow();
 	int biasMed();
