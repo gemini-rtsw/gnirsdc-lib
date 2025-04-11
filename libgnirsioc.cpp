@@ -1,4 +1,3 @@
-
 #include <iostream>
 #include <filesystem>
 #include <map>
@@ -965,6 +964,11 @@ void controllerInterface::setTCSContext(const TCSContext& tcs_context) {
     std::cout << "  port: " << current_tcs_context.port << std::endl;
     std::cout << "  camera: " << current_tcs_context.camera << std::endl;
     std::cout << "  ao: " << current_tcs_context.ao << std::endl;
+    std::cout << "  ra_offset: " << current_tcs_context.ra_offset << std::endl;
+    std::cout << "  dec_offset: " << current_tcs_context.dec_offset << std::endl;
+    std::cout << "  pm_ra: " << current_tcs_context.pm_ra << std::endl;
+    std::cout << "  pm_dec: " << current_tcs_context.pm_dec << std::endl;
+    std::cout << "  inst_iaa: " << current_tcs_context.inst_iaa << std::endl;
 }
 
 
@@ -1190,10 +1194,15 @@ int controllerInterface::expose() {
         json_object_object_add(pdu, "TCS_FRAME", json_object_new_string(this->current_tcs_context.track_frame.c_str()));
         json_object_object_add(pdu, "TCS_EQUINOX", json_object_new_string(this->current_tcs_context.track_equinox.c_str()));
         json_object_object_add(pdu, "TCS_TIME", json_object_new_string(this->current_tcs_context.time.c_str()));
-        json_object_object_add(pdu, "TCS_INST_PA", json_object_new_string(this->current_tcs_context.inst_pa.c_str()));  // Added inst_pa
+        json_object_object_add(pdu, "TCS_INST_PA", json_object_new_string(this->current_tcs_context.inst_pa.c_str()));
         json_object_object_add(pdu, "TCS_PORT", json_object_new_string(this->current_tcs_context.port.c_str()));
         json_object_object_add(pdu, "TCS_CAMERA", json_object_new_string(this->current_tcs_context.camera.c_str()));
         json_object_object_add(pdu, "TCS_AO", json_object_new_string(this->current_tcs_context.ao.c_str()));
+        json_object_object_add(pdu, "TCS_RA_OFFSET", json_object_new_string(this->current_tcs_context.ra_offset.c_str()));
+        json_object_object_add(pdu, "TCS_DEC_OFFSET", json_object_new_string(this->current_tcs_context.dec_offset.c_str()));
+        json_object_object_add(pdu, "TCS_PM_RA", json_object_new_string(this->current_tcs_context.pm_ra.c_str()));
+        json_object_object_add(pdu, "TCS_PM_DEC", json_object_new_string(this->current_tcs_context.pm_dec.c_str()));
+        json_object_object_add(pdu, "TCS_INST_IAA", json_object_new_string(this->current_tcs_context.inst_iaa.c_str()));
 	};
 
 

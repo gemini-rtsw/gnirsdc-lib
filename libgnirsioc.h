@@ -39,10 +39,15 @@ struct TCSContext {
     std::string track_frame;
     std::string track_equinox;
     std::string time;
-	std::string inst_pa;
+    std::string inst_pa;
     std::string port;
     std::string camera;
     std::string ao;
+    std::string ra_offset;
+    std::string dec_offset;
+    std::string pm_ra;
+    std::string pm_dec;
+    std::string inst_iaa;
 };
 
 namespace py = pybind11;
@@ -210,7 +215,12 @@ PYBIND11_MODULE(libgnirsioc, m) {
         .def_readwrite("inst_pa", &TCSContext::inst_pa)  
         .def_readwrite("port", &TCSContext::port)
         .def_readwrite("camera", &TCSContext::camera)
-        .def_readwrite("ao", &TCSContext::ao);
+        .def_readwrite("ao", &TCSContext::ao)
+        .def_readwrite("ra_offset", &TCSContext::ra_offset)
+        .def_readwrite("dec_offset", &TCSContext::dec_offset)
+        .def_readwrite("pm_ra", &TCSContext::pm_ra)
+        .def_readwrite("pm_dec", &TCSContext::pm_dec)
+        .def_readwrite("inst_iaa", &TCSContext::inst_iaa);
 
 	py::class_<controllerInterface>(m, "controllerInterface")
         .def(py::init<>()) 							// Default constructor
