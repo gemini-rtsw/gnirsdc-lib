@@ -75,6 +75,19 @@ static constexpr int MAX_ADCS = 256;
 static constexpr int ROWS_PER_FRAME = 512;
 static constexpr int COLS_PER_FRAME = 2048; // Twice the usual max
 
+// --- Legacy fixed-geometry firmware support ---
+// The archived "1FS-1DS" lod is a single fixed mode: it ignores the SFS/SDS
+// commands and always clocks out NSR x NPR = 2048 x 1024 = 2,097,152 pixels per
+// exposure. The host expose() loop runs nFrames*2 iterations, each waiting for
+// (nrows+1)*ncols pixels (AladdinIII). With nFrames forced to 1 that is 2
+// iterations, so we need (nrows+1)*ncols = 1,048,576 to total 2,097,152.
+// nrows=511, ncols=2048 satisfies that: (511+1)*2048*2 = 2,097,152.
+// Without this override setExposure hardcodes 512x2048 and the pixel counts
+// never reconcile -> the readout poll loop hangs forever.
+static const char* LEGACY_1FS_1DS_TAG = "1FS-1DS";
+static constexpr int LEGACY_1FS_1DS_NROWS = 511;
+static constexpr int LEGACY_1FS_1DS_NCOLS = 2048;
+
 static constexpr double singleReadoutTime = 0.238241778;
 static constexpr double singleADCTime = 0.1;
 
@@ -1017,12 +1030,28 @@ int controllerInterface::setExposure(double fowlerSamples, double adcSamples, do
 	if (coadds < 1) coadds = 1;
 
 
-	mode.frames = fowlerSamples;
-	mode.drop_frames = drop_frames;
-	mode.nadcs = adcSamples;
-	mode.exposure = exposureTime;
-	mode.nrows = ROWS_PER_FRAME;
-    mode.ncols = COLS_PER_FRAME * mode.nadcs; 
+	// Legacy fixed-geometry lod (e.g. 1FS-1DS): the firmware ignores SFS/SDS and
+	// clocks a fixed frame, so force the matching geometry/counts here regardless
+	// of what the IOC requested. Detected by the lod path/name.
+	bool legacy_1fs_1ds = (this->lodPath.find(LEGACY_1FS_1DS_TAG) != std::string::npos);
+
+	if (legacy_1fs_1ds) {
+		mode.frames = 1;
+		mode.drop_frames = 0;
+		mode.nadcs = 1;
+		mode.exposure = exposureTime;
+		mode.nrows = LEGACY_1FS_1DS_NROWS;
+		mode.ncols = LEGACY_1FS_1DS_NCOLS;
+		std::cout << "LEGACY 1FS-1DS firmware: forcing frames=1, nadcs=1, drop=0, geometry "
+		          << mode.nrows << "x" << mode.ncols << std::endl;
+	} else {
+		mode.frames = fowlerSamples;
+		mode.drop_frames = drop_frames;
+		mode.nadcs = adcSamples;
+		mode.exposure = exposureTime;
+		mode.nrows = ROWS_PER_FRAME;
+		mode.ncols = COLS_PER_FRAME * mode.nadcs;
+	}
 	mode.coadds = coadds;
 	mode.read_up_the_ramp = this->readUpTheRamp;
 	mode.label = datalabel;
