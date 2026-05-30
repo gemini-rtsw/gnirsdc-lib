@@ -77,16 +77,19 @@ static constexpr int COLS_PER_FRAME = 2048; // Twice the usual max
 
 // --- Legacy fixed-geometry firmware support ---
 // The archived "1FS-1DS" lod is a single fixed mode: it ignores the SFS/SDS
-// commands and always clocks out NSR x NPR = 2048 x 1024 = 2,097,152 pixels per
-// exposure. The host expose() loop runs nFrames*2 iterations, each waiting for
-// (nrows+1)*ncols pixels (AladdinIII). With nFrames forced to 1 that is 2
-// iterations, so we need (nrows+1)*ncols = 1,048,576 to total 2,097,152.
-// nrows=511, ncols=2048 satisfies that: (511+1)*2048*2 = 2,097,152.
+// commands and clocks out a fixed 1FS exposure = 2 frames of 1024x1024
+// (reset + read), 2,097,152 pixels total. The host expose() loop reads
+// totalFrames = nFrames*2 frames, each of pixelsToReadPerFrame pixels, so the
+// per-frame geometry is 1024x1024 and the loop reads 2 frames for 1FS.
 // Without this override setExposure hardcodes 512x2048 and the pixel counts
-// never reconcile -> the readout poll loop hangs forever.
+// never reconcile -> the readout poll loop hangs forever. (Diagnostic [PIXDBG]
+// logging confirms the actual counts on hardware.)
 static const char* LEGACY_1FS_1DS_TAG = "1FS-1DS";
+// One frame is 1024 x 1024 pixels. A Fowler sample is 2 frames (reset+read),
+// which the expose() loop handles via totalFrames = nFrames*2. So per-frame
+// geometry is 1024 x 1024; the loop reads two of them for 1FS.
 static constexpr int LEGACY_1FS_1DS_NROWS = 1024;
-static constexpr int LEGACY_1FS_1DS_NCOLS = 2048;
+static constexpr int LEGACY_1FS_1DS_NCOLS = 1024;
 
 static constexpr double singleReadoutTime = 0.238241778;
 static constexpr double singleADCTime = 0.1;
