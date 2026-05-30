@@ -85,7 +85,7 @@ static constexpr int COLS_PER_FRAME = 2048; // Twice the usual max
 // Without this override setExposure hardcodes 512x2048 and the pixel counts
 // never reconcile -> the readout poll loop hangs forever.
 static const char* LEGACY_1FS_1DS_TAG = "1FS-1DS";
-static constexpr int LEGACY_1FS_1DS_NROWS = 511;
+static constexpr int LEGACY_1FS_1DS_NROWS = 1024;
 static constexpr int LEGACY_1FS_1DS_NCOLS = 2048;
 
 static constexpr double singleReadoutTime = 0.238241778;
@@ -500,9 +500,15 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 
 	if (gIsDebug) std::cout << "Total Frames: " << nFrames * (1 + nDropFrames) << " Total Fowlers/Save Frames: " << nFrames << " Drop: " << nDropFrames << "\n";
 
+	std::cout << "[PIXDBG] dRows=" << dRows << " dCols=" << dCols
+	          << " pixelsToReadPerFrame=" << pixelsToReadPerFrame
+	          << " totalFrames=" << totalFrames
+	          << " expectedTotal=" << (long)pixelsToReadPerFrame * totalFrames << std::endl;
+
 	while (i < totalFrames && !isAbort) {
 		if (gIsDebug) std::cout << "Loop: " << i << " end: " << totalFrames << "\n";
 
+		std::cout << "[PIXDBG] frame " << i << " waiting; GetPixelCount=" << dev->GetPixelCount() << std::endl;
 
 		if (!gIsDebug) {
 			while (lastPixelCount >= dev->GetPixelCount() && !isAbort) {
@@ -536,10 +542,16 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 			// check that we read enough data and that we haven't rolled off the end and started the next frame
 
 			int currentPixelCount = lastPixelCount = dev->GetPixelCount();
+			int pixdbg_ticks = 0;
 			while (currentPixelCount < pixelsToReadPerFrame && currentPixelCount >= lastPixelCount && !isAbort) {
-				lastPixelCount = currentPixelCount; 
+				lastPixelCount = currentPixelCount;
 				currentPixelCount = dev->GetPixelCount();
+				if ((pixdbg_ticks++ % 2000000) == 0)
+					std::cout << "[PIXDBG] frame " << i << " count=" << currentPixelCount
+					          << " / target=" << pixelsToReadPerFrame << std::endl;
 			}
+			std::cout << "[PIXDBG] frame " << i << " inner-wait exit count=" << currentPixelCount
+			          << " / target=" << pixelsToReadPerFrame << std::endl;
 		}
 		else if (i == totalFrames / 2) {
 			std::cout << "Simulate integration time. Busy-waiting for " << msec << " ms\n";
