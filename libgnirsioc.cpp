@@ -75,22 +75,6 @@ static constexpr int MAX_ADCS = 256;
 static constexpr int ROWS_PER_FRAME = 512;
 static constexpr int COLS_PER_FRAME = 2048; // Twice the usual max
 
-// --- Legacy fixed-geometry firmware support ---
-// The archived "1FS-1DS" lod is a single fixed mode: it ignores the SFS/SDS
-// commands and clocks out a fixed 1FS exposure = 2 frames of 1024x1024
-// (reset + read), 2,097,152 pixels total. The host expose() loop reads
-// totalFrames = nFrames*2 frames, each of pixelsToReadPerFrame pixels, so the
-// per-frame geometry is 1024x1024 and the loop reads 2 frames for 1FS.
-// Without this override setExposure hardcodes 512x2048 and the pixel counts
-// never reconcile -> the readout poll loop hangs forever. (Diagnostic [PIXDBG]
-// logging confirms the actual counts on hardware.)
-static const char* LEGACY_1FS_1DS_TAG = "1FS-1DS";
-// One frame is 1024 x 1024 pixels. A Fowler sample is 2 frames (reset+read),
-// which the expose() loop handles via totalFrames = nFrames*2. So per-frame
-// geometry is 1024 x 1024; the loop reads two of them for 1FS.
-static constexpr int LEGACY_1FS_1DS_NROWS = 1024;
-static constexpr int LEGACY_1FS_1DS_NCOLS = 1024;
-
 static constexpr double singleReadoutTime = 0.238241778;
 static constexpr double singleADCTime = 0.1;
 
@@ -503,6 +487,10 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 
 	if (gIsDebug) std::cout << "Total Frames: " << nFrames * (1 + nDropFrames) << " Total Fowlers/Save Frames: " << nFrames << " Drop: " << nDropFrames << "\n";
 
+	// Host-side expectation vs. what the firmware actually clocks out. The DSP's
+	// compiled NSR must equal dCols (512 x NDS x 4 quadrants): NSR=12288 for the
+	// 6DS production lod, NSR=2048 for the 1FS-1DS lod. A mismatch stalls the
+	// inner wait below, so log the counts to make that visible.
 	std::cout << "[PIXDBG] dRows=" << dRows << " dCols=" << dCols
 	          << " pixelsToReadPerFrame=" << pixelsToReadPerFrame
 	          << " totalFrames=" << totalFrames
@@ -511,7 +499,8 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 	while (i < totalFrames && !isAbort) {
 		if (gIsDebug) std::cout << "Loop: " << i << " end: " << totalFrames << "\n";
 
-		std::cout << "[PIXDBG] frame " << i << " waiting; GetPixelCount=" << dev->GetPixelCount() << std::endl;
+		if (!gIsDebug)
+			std::cout << "[PIXDBG] frame " << i << " waiting; GetPixelCount=" << dev->GetPixelCount() << std::endl;
 
 		if (!gIsDebug) {
 			while (lastPixelCount >= dev->GetPixelCount() && !isAbort) {
@@ -1045,28 +1034,12 @@ int controllerInterface::setExposure(double fowlerSamples, double adcSamples, do
 	if (coadds < 1) coadds = 1;
 
 
-	// Legacy fixed-geometry lod (e.g. 1FS-1DS): the firmware ignores SFS/SDS and
-	// clocks a fixed frame, so force the matching geometry/counts here regardless
-	// of what the IOC requested. Detected by the lod path/name.
-	bool legacy_1fs_1ds = (this->lodPath.find(LEGACY_1FS_1DS_TAG) != std::string::npos);
-
-	if (legacy_1fs_1ds) {
-		mode.frames = 1;
-		mode.drop_frames = 0;
-		mode.nadcs = 1;
-		mode.exposure = exposureTime;
-		mode.nrows = LEGACY_1FS_1DS_NROWS;
-		mode.ncols = LEGACY_1FS_1DS_NCOLS;
-		std::cout << "LEGACY 1FS-1DS firmware: forcing frames=1, nadcs=1, drop=0, geometry "
-		          << mode.nrows << "x" << mode.ncols << std::endl;
-	} else {
-		mode.frames = fowlerSamples;
-		mode.drop_frames = drop_frames;
-		mode.nadcs = adcSamples;
-		mode.exposure = exposureTime;
-		mode.nrows = ROWS_PER_FRAME;
-		mode.ncols = COLS_PER_FRAME * mode.nadcs;
-	}
+	mode.frames = fowlerSamples;
+	mode.drop_frames = drop_frames;
+	mode.nadcs = adcSamples;
+	mode.exposure = exposureTime;
+	mode.nrows = ROWS_PER_FRAME;
+    mode.ncols = COLS_PER_FRAME * mode.nadcs; 
 	mode.coadds = coadds;
 	mode.read_up_the_ramp = this->readUpTheRamp;
 	mode.label = datalabel;
