@@ -36,7 +36,10 @@ struct ReadoutConfig {
 	// error, expose() throws, and because it runs on a detached std::thread the
 	// exception is uncaught and aborts the whole IOC process. Those builds are
 	// fixed at one digital sample, so skipping the command is correct.
-	bool supports_sds{true};
+	// NOTE: no default initialiser here -- this is built as C++11, where a
+	// default member initialiser makes the struct a non-aggregate and breaks the
+	// brace-init of `mode` below. Initialise it explicitly instead.
+	bool supports_sds;
 };
 
 struct TCSContext {
@@ -111,7 +114,9 @@ public:
 
     std::mutex clockoutMutex;
 
-	ReadoutConfig mode{"defaul-label", ALADDINII_LOD_NAME, 512, 2048, 1, 1, 0, 0.0, 'M', 1};
+	// Trailing fields: read_up_the_ramp=false, supports_sds=true (production
+	// firmware has SDS; setAladdinIII(false) clears it for the legacy lods).
+	ReadoutConfig mode{"defaul-label", ALADDINII_LOD_NAME, 512, 2048, 1, 1, 0, 0.0, 'M', 1, false, true};
 
 	std::string version();
 
