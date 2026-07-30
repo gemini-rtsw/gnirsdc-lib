@@ -367,6 +367,7 @@ private:
 	unsigned nADCs;
 	unsigned nDropFrames;
 	bool readUpTheRamp;
+	bool supportsSDS;
 	std::string dataLabel;
 
 	double getExposureOverhead(double fowlers, double  ADCs) {
@@ -391,6 +392,7 @@ Camera::Camera(CArcDevice *pDevice, const ReadoutConfig &mode)
 	  nADCs(mode.nadcs),
 	  nDropFrames(mode.drop_frames),
 	  readUpTheRamp(mode.read_up_the_ramp),
+	  supportsSDS(mode.supports_sds),
 	  dataLabel(mode.label)
 {
 }
@@ -423,8 +425,17 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 		throw std::runtime_error("Set number of fowlers failed");
 	}
 
-	if (!gIsDebug && dev->Command( TIM_ID, SDS, nADCs) != DON) {
-		throw std::runtime_error("Set analog digital samples failed");
+	// Legacy lods have no SDS in their command table; sending it makes the DSP
+	// reply with an error and this throw kills the IOC (expose() runs on a
+	// detached thread, so the exception is uncaught -> std::terminate). Those
+	// builds are hardwired to one digital sample, so not sending SDS is correct.
+	if (supportsSDS) {
+		if (!gIsDebug && dev->Command( TIM_ID, SDS, nADCs) != DON) {
+			throw std::runtime_error("Set analog digital samples failed");
+		}
+	}
+	else {
+		std::cout << "SDS not supported by this firmware; skipping (nadcs fixed at 1)" << std::endl;
 	}
 	
 	unsigned long long loops = 0;
@@ -944,11 +955,14 @@ void controllerInterface::setAladdinIII(bool isAladdinIII) {
 		printf("Firmware set to Aladdin III\n");
 		mode.lod_file = aladdinIIIFilename;
 		gIsAladdinIII = true;
+		mode.supports_sds = true;
 	}
 	else {
 		mode.lod_file = aladdinIIFilename;
 		printf("Firmware set to Aladdin II\n");
 		gIsAladdinIII = false;
+		// The AladdinII/legacy lods predate SDS; expose() must not send it.
+		mode.supports_sds = false;
 	}
 }	
 

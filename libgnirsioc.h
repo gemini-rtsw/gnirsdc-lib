@@ -31,6 +31,12 @@ struct ReadoutConfig {
     char wellDepth;
 	int coadds;
 	bool read_up_the_ramp;
+	// Legacy lods (e.g. the archived 1FS-1DS build) have no SDS entry in their
+	// DSP command table. expose() must not send it: the DSP replies with an
+	// error, expose() throws, and because it runs on a detached std::thread the
+	// exception is uncaught and aborts the whole IOC process. Those builds are
+	// fixed at one digital sample, so skipping the command is correct.
+	bool supports_sds{true};
 };
 
 struct TCSContext {
