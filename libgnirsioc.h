@@ -83,6 +83,7 @@ public:
 	int biasHigh();
 	int setExposure(double fowlserSamples, double adcSamples, double exposureTime, int coadds, int drop_frames, std::string datalabel);
 	void setAladdinIII(bool isAladdinIII);
+	void setSupportsSDS(bool supported);
     int startExposure(double temp1, double temp2, bool raw);	
 	int startExposureBlock(double temp1, double temp2, bool raw); 
 	void abortExposure();
@@ -115,7 +116,7 @@ public:
     std::mutex clockoutMutex;
 
 	// Trailing fields: read_up_the_ramp=false, supports_sds=true (production
-	// firmware has SDS; setAladdinIII(false) clears it for the legacy lods).
+	// firmware has SDS; setSupportsSDS(false) clears it for the legacy lods).
 	ReadoutConfig mode{"defaul-label", ALADDINII_LOD_NAME, 512, 2048, 1, 1, 0, 0.0, 'M', 1, false, true};
 
 	std::string version();
@@ -177,6 +178,7 @@ public:
 	int biasHigh() 									{cout << "biasHigh" << endl;return 0;}
 	int setExposure(double fowlserSamples, double adcSamples, double exposureTime, int coadds, int drop_frames, std::string datalabel){cout << "setExposure lnr: " << fowlserSamples << " adc: " << adcSamples << " exposureTime: " << exposureTime << " coadds: " << coadds << " drop frames: " << drop_frames << endl;return 0;}
 	void setAladdinIII(bool isAladdinIII)			{cout << "setAladdinIII" << endl;}
+	void setSupportsSDS(bool supported)			{cout << "setSupportsSDS" << endl;}
     int startExposure(double temp1, double temp2, bool raw) 	{cout << "startExposure" << endl;return 0;}
 	int startExposureBlock(double temp1, double temp2, bool raw) {cout << "startExposureBlock" << endl;return 0;}
 	void abortExposure() 							{cout << "abortExposure" << endl; }
@@ -251,6 +253,7 @@ PYBIND11_MODULE(libgnirsioc, m) {
 		.def("biasHigh", &controllerInterface::biasHigh)
 		.def("setExposure", &controllerInterface::setExposure)
 		.def("setAladdinIII", &controllerInterface::setAladdinIII)
+		.def("setSupportsSDS", &controllerInterface::setSupportsSDS)
 		.def("startExposure", &controllerInterface::startExposure)
 		.def("startExposureBlock", &controllerInterface::startExposureBlock)
 		.def("getReadingOut", &controllerInterface::getReadingOut)
@@ -282,6 +285,7 @@ PYBIND11_MODULE(libgnirsioc, m) {
 		.def("biasHigh", &controllerInterfaceDebug::biasHigh)
 		.def("setExposure", &controllerInterfaceDebug::setExposure)
 		.def("setAladdinIII", &controllerInterfaceDebug::setAladdinIII)
+		.def("setSupportsSDS", &controllerInterfaceDebug::setSupportsSDS)
 		.def("startExposure", &controllerInterfaceDebug::startExposure)
 		.def("startExposureBlock", &controllerInterfaceDebug::startExposureBlock)
 		.def("getReadingOut", &controllerInterfaceDebug::getReadingOut)

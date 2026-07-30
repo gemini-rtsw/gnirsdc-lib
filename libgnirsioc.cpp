@@ -955,16 +955,23 @@ void controllerInterface::setAladdinIII(bool isAladdinIII) {
 		printf("Firmware set to Aladdin III\n");
 		mode.lod_file = aladdinIIIFilename;
 		gIsAladdinIII = true;
-		mode.supports_sds = true;
 	}
 	else {
 		mode.lod_file = aladdinIIFilename;
 		printf("Firmware set to Aladdin II\n");
 		gIsAladdinIII = false;
-		// The AladdinII/legacy lods predate SDS; expose() must not send it.
-		mode.supports_sds = false;
 	}
-}	
+}
+
+// Whether the loaded firmware implements SDS (set number of digital samples).
+// Kept independent of setAladdinIII: that flag drives the row-513 readout
+// geometry (including SetImageSize), whereas this only controls whether expose()
+// sends the SDS command. The archived legacy lods have no SDS in their command
+// table but still need the AladdinIII geometry.
+void controllerInterface::setSupportsSDS(bool supported) {
+	mode.supports_sds = supported;
+	std::cout << "SDS support set to " << (supported ? "true" : "false") << std::endl;
+}
 
 
 bool controllerInterface::testDataLink() {
