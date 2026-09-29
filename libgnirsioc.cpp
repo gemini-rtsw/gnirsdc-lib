@@ -254,12 +254,16 @@ void json_set_datalabel(json_object *job, std::string prefix, unsigned nFrames, 
 
 class DataCollector {
 public:
-	DataCollector(Pixel *origin, size_t totalPixels, int cols, const std::string &basePath, const std::string &baseFileName, int buffNo);
+	DataCollector(Pixel *origin, size_t totalPixels, int cols, const std::string &basePath, const std::string &baseFileName, int buffNo, bool row513);
 	std::string getFileName() const { return fileName; };
 	bool full() const { return currentOffset >= buffSize; }
 	void data_save() const;
 
-	inline void update(size_t count)
+	// srcOffset is where this frame starts in the DMA buffer: always 0 for
+	// production firmware (IIA before every READOUT rewinds the PCIe image
+	// address), frame_index * frame_pixels for legacy lods (one IIA per exposure,
+	// so frames are laid out back to back).
+	inline void update(size_t count, size_t srcOffset = 0)
 	{
 		Pixel *buffNow = &buffer[currentOffset];
 
@@ -270,13 +274,13 @@ public:
 			count = buffLimit - buffNow;
 		}
 
-		std::memcpy(buffNow, &origBuffer[currentOffset], count * sizeof(Pixel));
+		std::memcpy(buffNow, &origBuffer[srcOffset + currentOffset], count * sizeof(Pixel));
 
 //		std::cout << "Copied DMA block\n";
 
 		currentOffset += count;
 
-		if (full() && gIsAladdinIII) {
+		if (full() && mRow513) {
 			copyRow513(mCols);
 		}
 	}
@@ -305,6 +309,7 @@ public:
 private:
 	size_t buffSize;
 	int mCols;
+	bool mRow513;
 	size_t currentOffset;
 
 	Pixel *origBuffer;
@@ -315,9 +320,10 @@ private:
 };
 
 
-DataCollector::DataCollector(Pixel *origin, size_t totalPixels, int cols, const std::string &basePath, const std::string &baseFileName, int buffNo)
+DataCollector::DataCollector(Pixel *origin, size_t totalPixels, int cols, const std::string &basePath, const std::string &baseFileName, int buffNo, bool row513)
 	: buffSize(totalPixels),
 	  mCols(cols),
+	  mRow513(row513),
       currentOffset(0),
 	  origBuffer(origin)
 {
@@ -368,6 +374,7 @@ private:
 	unsigned nDropFrames;
 	bool readUpTheRamp;
 	bool supportsSDS;
+	bool legacyFirmware;
 	std::string dataLabel;
 
 	double getExposureOverhead(double fowlers, double  ADCs) {
@@ -393,6 +400,7 @@ Camera::Camera(CArcDevice *pDevice, const ReadoutConfig &mode)
 	  nDropFrames(mode.drop_frames),
 	  readUpTheRamp(mode.read_up_the_ramp),
 	  supportsSDS(mode.supports_sds),
+	  legacyFirmware(mode.legacy_firmware),
 	  dataLabel(mode.label)
 {
 }
@@ -465,7 +473,7 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 	DataCollector *collectors[nFrames * 2];
 
 	for (unsigned i = 0; i < (nFrames * 2); i++) {
-		collectors[i] = new DataCollector(buffer, dRows * dCols, dCols, basepath, basename, i);
+		collectors[i] = new DataCollector(buffer, dRows * dCols, dCols, basepath, basename, i, gIsAladdinIII && !legacyFirmware);
 
 		json_object_array_add(samples, json_object_new_string(collectors[i]->getFileName().c_str()));
 	}
@@ -485,7 +493,7 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 	isAbort = false;
 
 	int pixelsToReadPerFrame = dRows * dCols;
-	if (gIsAladdinIII) 
+	if (gIsAladdinIII && !legacyFirmware)
 		pixelsToReadPerFrame = (dRows + 1) * dCols;
 
 
@@ -505,10 +513,17 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 	std::cout << "[PIXDBG] dRows=" << dRows << " dCols=" << dCols
 	          << " pixelsToReadPerFrame=" << pixelsToReadPerFrame
 	          << " totalFrames=" << totalFrames
-	          << " expectedTotal=" << (long)pixelsToReadPerFrame * totalFrames << std::endl;
+	          << " expectedTotal=" << (long)pixelsToReadPerFrame * totalFrames
+	          << " legacy=" << legacyFirmware << std::endl;
 
 	while (i < totalFrames && !isAbort) {
 		if (gIsDebug) std::cout << "Loop: " << i << " end: " << totalFrames << "\n";
+
+		// Production: the PCIe pixel count restarts at 0 for every frame, so each
+		// frame is complete at pixelsToReadPerFrame. Legacy: one IIA per exposure,
+		// so the count is cumulative and frame i is complete at (i+1) frames.
+		int frameTarget = legacyFirmware ? (int)(i + 1) * pixelsToReadPerFrame : pixelsToReadPerFrame;
+		size_t frameOffset = legacyFirmware ? (size_t)i * pixelsToReadPerFrame : 0;
 
 		if (!gIsDebug)
 			std::cout << "[PIXDBG] frame " << i << " waiting; GetPixelCount=" << dev->GetPixelCount() << std::endl;
@@ -546,15 +561,15 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 
 			int currentPixelCount = lastPixelCount = dev->GetPixelCount();
 			int pixdbg_ticks = 0;
-			while (currentPixelCount < pixelsToReadPerFrame && currentPixelCount >= lastPixelCount && !isAbort) {
+			while (currentPixelCount < frameTarget && currentPixelCount >= lastPixelCount && !isAbort) {
 				lastPixelCount = currentPixelCount;
 				currentPixelCount = dev->GetPixelCount();
 				if ((pixdbg_ticks++ % 2000000) == 0)
 					std::cout << "[PIXDBG] frame " << i << " count=" << currentPixelCount
-					          << " / target=" << pixelsToReadPerFrame << std::endl;
+					          << " / target=" << frameTarget << std::endl;
 			}
 			std::cout << "[PIXDBG] frame " << i << " inner-wait exit count=" << currentPixelCount
-			          << " / target=" << pixelsToReadPerFrame << std::endl;
+			          << " / target=" << frameTarget << std::endl;
 		}
 		else if (i == totalFrames / 2) {
 			std::cout << "Simulate integration time. Busy-waiting for " << msec << " ms\n";
@@ -577,13 +592,13 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 
 			if (gIsDebug) std::cout << "Total collectors: " << nFrames * 2 << " Current collector: " << collector << "\n";
 
-			collectors[collector]->update(pixelsToReadPerFrame);
+			collectors[collector]->update(pixelsToReadPerFrame, frameOffset);
 			
 			threads.push_back(new std::thread(&DataCollector::data_save, collectors[collector]));
 			collector++;
 		}
 
-		lastPixelCount = pixelsToReadPerFrame;
+		lastPixelCount = frameTarget;
 		totalPixelCount += pixelsToReadPerFrame;
 
 		i++;
@@ -973,6 +988,20 @@ void controllerInterface::setSupportsSDS(bool supported) {
 	std::cout << "SDS support set to " << (supported ? "true" : "false") << std::endl;
 }
 
+// Readout handling for the archived legacy lods, which must run unmodified (they
+// are the low-noise reference the production firmware is compared against).
+// Compared with production they: have no SDS command and a fixed single digital
+// sample, clock 512 rows per frame with no row 513, and send IIA once per
+// exposure rather than before every READOUT. Enabling this covers all of that
+// on the host side; it overrides setAladdinIII's geometry but leaves the flag
+// itself alone.
+void controllerInterface::setLegacyFirmware(bool legacy) {
+	mode.legacy_firmware = legacy;
+	mode.supports_sds = !legacy;
+	std::cout << "Legacy firmware readout " << (legacy ? "enabled" : "disabled")
+	          << " (SDS " << (legacy ? "off" : "on") << ")" << std::endl;
+}
+
 
 bool controllerInterface::testDataLink() {
 	std::cout << "Testing Data Link \n"; 
@@ -1059,10 +1088,22 @@ int controllerInterface::setExposure(double fowlerSamples, double adcSamples, do
 	mode.drop_frames = drop_frames;
 	mode.nadcs = adcSamples;
 	mode.exposure = exposureTime;
+	mode.read_up_the_ramp = this->readUpTheRamp;
+
+	// Legacy lods are hardwired to one digital sample and only do Fowler
+	// sampling (no SRL/SRE), so ignore a stale NDAVGS or ramp setting rather
+	// than wait for pixels the firmware never sends.
+	if (mode.legacy_firmware) {
+		if (mode.nadcs != 1 || mode.read_up_the_ramp)
+			std::cout << "Legacy firmware: forcing ADCs=1 and Fowler mode (requested ADCs="
+			          << mode.nadcs << " ramp=" << mode.read_up_the_ramp << ")" << std::endl;
+		mode.nadcs = 1;
+		mode.read_up_the_ramp = false;
+	}
+
 	mode.nrows = ROWS_PER_FRAME;
     mode.ncols = COLS_PER_FRAME * mode.nadcs; 
 	mode.coadds = coadds;
-	mode.read_up_the_ramp = this->readUpTheRamp;
 	mode.label = datalabel;
 
 	std::cout << "Fowler samples: " << mode.frames << " ADCs: " << mode.nadcs << " Exposure time: " << mode.exposure << " Drop frames: " << mode.drop_frames << std::endl;
@@ -1246,7 +1287,17 @@ int controllerInterface::expose() {
 
 	if (!gIsDebug) {
 		try {	
-			if (gIsAladdinIII) {
+			if (mode.legacy_firmware) {
+				// Every frame of the exposure (reset + signal, drops included) is
+				// DMA'd back to back, so map room for all of them. SetImageSize also
+				// writes this row count to Y:NPR, which the legacy lod's readout
+				// never reads (its loops are hardcoded to 512 rows).
+				unsigned totalFrames = mode.frames * 2 * (1 + mode.drop_frames);
+				std::cout << "Legacy firmware: mapping " << totalFrames << " frames of "
+				          << mode.nrows << "x" << mode.ncols << std::endl;
+				gCont->set_size(mode.nrows * totalFrames, mode.ncols);
+			}
+			else if (gIsAladdinIII) {
 				gCont->set_size(mode.nrows + 1, mode.ncols);
 			}
 			else {

@@ -40,6 +40,13 @@ struct ReadoutConfig {
 	// default member initialiser makes the struct a non-aggregate and breaks the
 	// brace-init of `mode` below. Initialise it explicitly instead.
 	bool supports_sds;
+	// Archived legacy lods (1FS-1DS etc.) send IIA (reset the PCIe image address
+	// and pixel count) once per exposure, not before every READOUT as production
+	// does, and clock 512 rows with no extra row 513. The frames of one exposure
+	// therefore land back to back in the DMA buffer with a cumulative pixel
+	// count, and expose() must map and index them that way. Set via
+	// setLegacyFirmware(); same no-default-initialiser rule as above.
+	bool legacy_firmware;
 };
 
 struct TCSContext {
@@ -84,6 +91,7 @@ public:
 	int setExposure(double fowlserSamples, double adcSamples, double exposureTime, int coadds, int drop_frames, std::string datalabel);
 	void setAladdinIII(bool isAladdinIII);
 	void setSupportsSDS(bool supported);
+	void setLegacyFirmware(bool legacy);
     int startExposure(double temp1, double temp2, bool raw);	
 	int startExposureBlock(double temp1, double temp2, bool raw); 
 	void abortExposure();
@@ -116,8 +124,9 @@ public:
     std::mutex clockoutMutex;
 
 	// Trailing fields: read_up_the_ramp=false, supports_sds=true (production
-	// firmware has SDS; setSupportsSDS(false) clears it for the legacy lods).
-	ReadoutConfig mode{"defaul-label", ALADDINII_LOD_NAME, 512, 2048, 1, 1, 0, 0.0, 'M', 1, false, true};
+	// firmware has SDS; setSupportsSDS(false) clears it for the legacy lods),
+	// legacy_firmware=false (setLegacyFirmware(true) for the archived lods).
+	ReadoutConfig mode{"defaul-label", ALADDINII_LOD_NAME, 512, 2048, 1, 1, 0, 0.0, 'M', 1, false, true, false};
 
 	std::string version();
 
@@ -179,6 +188,7 @@ public:
 	int setExposure(double fowlserSamples, double adcSamples, double exposureTime, int coadds, int drop_frames, std::string datalabel){cout << "setExposure lnr: " << fowlserSamples << " adc: " << adcSamples << " exposureTime: " << exposureTime << " coadds: " << coadds << " drop frames: " << drop_frames << endl;return 0;}
 	void setAladdinIII(bool isAladdinIII)			{cout << "setAladdinIII" << endl;}
 	void setSupportsSDS(bool supported)			{cout << "setSupportsSDS" << endl;}
+	void setLegacyFirmware(bool legacy)			{cout << "setLegacyFirmware" << endl;}
     int startExposure(double temp1, double temp2, bool raw) 	{cout << "startExposure" << endl;return 0;}
 	int startExposureBlock(double temp1, double temp2, bool raw) {cout << "startExposureBlock" << endl;return 0;}
 	void abortExposure() 							{cout << "abortExposure" << endl; }
@@ -254,6 +264,7 @@ PYBIND11_MODULE(libgnirsioc, m) {
 		.def("setExposure", &controllerInterface::setExposure)
 		.def("setAladdinIII", &controllerInterface::setAladdinIII)
 		.def("setSupportsSDS", &controllerInterface::setSupportsSDS)
+		.def("setLegacyFirmware", &controllerInterface::setLegacyFirmware)
 		.def("startExposure", &controllerInterface::startExposure)
 		.def("startExposureBlock", &controllerInterface::startExposureBlock)
 		.def("getReadingOut", &controllerInterface::getReadingOut)
@@ -286,6 +297,7 @@ PYBIND11_MODULE(libgnirsioc, m) {
 		.def("setExposure", &controllerInterfaceDebug::setExposure)
 		.def("setAladdinIII", &controllerInterfaceDebug::setAladdinIII)
 		.def("setSupportsSDS", &controllerInterfaceDebug::setSupportsSDS)
+		.def("setLegacyFirmware", &controllerInterfaceDebug::setLegacyFirmware)
 		.def("startExposure", &controllerInterfaceDebug::startExposure)
 		.def("startExposureBlock", &controllerInterfaceDebug::startExposureBlock)
 		.def("getReadingOut", &controllerInterfaceDebug::getReadingOut)
