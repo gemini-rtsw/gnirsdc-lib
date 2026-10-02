@@ -75,6 +75,12 @@ static constexpr int MAX_ADCS = 256;
 static constexpr int ROWS_PER_FRAME = 512;
 static constexpr int COLS_PER_FRAME = 2048; // Twice the usual max
 
+// Legacy lods only send IIA before the first READOUT, so the PCIe board stores
+// every later READOUT's RDA header as 8 pixel values ahead of that frame's
+// data. Measured on hardware: an LNRS=1 exposure ends at 2*frame + 8 pixels,
+// and leaving them in shifts the signal frame by one quadrant slot.
+static constexpr int LEGACY_FRAME_HEADER_PIXELS = 8;
+
 static constexpr double singleReadoutTime = 0.238241778;
 static constexpr double singleADCTime = 0.1;
 
@@ -521,9 +527,14 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 
 		// Production: the PCIe pixel count restarts at 0 for every frame, so each
 		// frame is complete at pixelsToReadPerFrame. Legacy: one IIA per exposure,
-		// so the count is cumulative and frame i is complete at (i+1) frames.
-		int frameTarget = legacyFirmware ? (int)(i + 1) * pixelsToReadPerFrame : pixelsToReadPerFrame;
-		size_t frameOffset = legacyFirmware ? (size_t)i * pixelsToReadPerFrame : 0;
+		// so the count is cumulative and frame i is complete at (i+1) frames, plus
+		// the stored header of each frame after the first.
+		int frameTarget = legacyFirmware
+			? (int)(i + 1) * pixelsToReadPerFrame + (int)i * LEGACY_FRAME_HEADER_PIXELS
+			: pixelsToReadPerFrame;
+		size_t frameOffset = legacyFirmware
+			? (size_t)i * (pixelsToReadPerFrame + LEGACY_FRAME_HEADER_PIXELS)
+			: 0;
 
 		if (!gIsDebug)
 			std::cout << "[PIXDBG] frame " << i << " waiting; GetPixelCount=" << dev->GetPixelCount() << std::endl;
@@ -591,6 +602,15 @@ Camera::expose(Controller* cont, float expTime, std::string basepath, std::strin
 
 
 			if (gIsDebug) std::cout << "Total collectors: " << nFrames * 2 << " Current collector: " << collector << "\n";
+
+			// Log the skipped header words so a wrong LEGACY_FRAME_HEADER_PIXELS
+			// is visible: they should not look like pixel levels.
+			if (legacyFirmware && i > 0) {
+				std::ostringstream hdr;
+				for (size_t k = frameOffset - LEGACY_FRAME_HEADER_PIXELS; k < frameOffset; k++)
+					hdr << " 0x" << std::hex << buffer[k];
+				std::cout << "[PIXDBG] frame " << i << " skipped header:" << hdr.str() << std::endl;
+			}
 
 			collectors[collector]->update(pixelsToReadPerFrame, frameOffset);
 			
@@ -1289,13 +1309,15 @@ int controllerInterface::expose() {
 		try {	
 			if (mode.legacy_firmware) {
 				// Every frame of the exposure (reset + signal, drops included) is
-				// DMA'd back to back, so map room for all of them. SetImageSize also
-				// writes this row count to Y:NPR, which the legacy lod's readout
-				// never reads (its loops are hardcoded to 512 rows).
+				// DMA'd back to back, so map room for all of them, plus one spare
+				// row for the 8-pixel headers stored between frames (enough for 256
+				// frames). SetImageSize also writes this row count to Y:NPR, which
+				// the legacy lod's readout never reads (its loops are hardcoded to
+				// 512 rows).
 				unsigned totalFrames = mode.frames * 2 * (1 + mode.drop_frames);
 				std::cout << "Legacy firmware: mapping " << totalFrames << " frames of "
 				          << mode.nrows << "x" << mode.ncols << std::endl;
-				gCont->set_size(mode.nrows * totalFrames, mode.ncols);
+				gCont->set_size(mode.nrows * totalFrames + 1, mode.ncols);
 			}
 			else if (gIsAladdinIII) {
 				gCont->set_size(mode.nrows + 1, mode.ncols);
