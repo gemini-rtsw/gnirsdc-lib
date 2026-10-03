@@ -1,4 +1,8 @@
-$(shell echo -e "#include \"version.h\"\n\nchar const *const GIT_COMMIT = \"$$(git describe --tags --long)\";" > version.cpp.tmp; if diff -q version.cpp.tmp version.cpp >/dev/null 2>&1; then rm version.cpp.tmp; else mv version.cpp.tmp version.cpp; fi)
+# The RPM build runs from a tarball with no .git, so the spec passes the commit
+# in as GIT_DESCRIBE; a developer checkout still gets `git describe`.
+GIT_DESCRIBE ?= $(shell git describe --tags --long 2>/dev/null)
+
+$(shell echo -e "#include \"version.h\"\n\nchar const *const GIT_COMMIT = \"$(GIT_DESCRIBE)\";" > version.cpp.tmp; if diff -q version.cpp.tmp version.cpp >/dev/null 2>&1; then rm version.cpp.tmp; else mv version.cpp.tmp version.cpp; fi)
 
 PYTHON_INCLUDES=$(shell python3.9-config --includes)
 

@@ -1,0 +1,23 @@
+name: Build
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+jobs:
+  build:
+    uses: gemini-rtsw/gemini-rtsw-ci/.github/workflows/ci.yml@main
+    secrets: inherit
+    with:
+      scripts_dir: gemini-rtsw-ci
+      # No EPICS content, so no gemini-ade or rpm-repo dependency container.
+      # EPEL, powertools and the python39 stream come from custom-repo-setup.sh.
+      profile: lightweight
+      # EL8 only: the module is built for the EL8 python39 stream that the
+      # GNIRS DC runtime uses.
+      el_version: '8'
+
+  publish:
+    needs: build
+    uses: gemini-rtsw/gemini-rtsw-ci/.github/workflows/publish.yml@main
+    secrets: inherit
