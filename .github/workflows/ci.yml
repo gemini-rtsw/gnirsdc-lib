@@ -11,11 +11,11 @@ jobs:
     with:
       scripts_dir: gemini-rtsw-ci
       # No EPICS content, so no gemini-ade or rpm-repo dependency container.
-      # EPEL, powertools and the python39 stream come from custom-repo-setup.sh.
+      # EPEL and CRB come from custom-repo-setup.sh.
       profile: lightweight
-      # EL8 only: the module is built for the EL8 python39 stream that the
-      # GNIRS DC runtime uses.
-      el_version: '8'
+      # EL9 only: the module is built for EL9's Python 3.9, which the GNIRS DC
+      # image runs.
+      el_version: '9'
 
   publish:
     needs: build

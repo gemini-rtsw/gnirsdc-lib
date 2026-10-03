@@ -1,11 +1,11 @@
 # gnirsdc-lib: pybind11 extension (libgnirsioc) that drives the GNIRS DC ARC
 # controller, plus the prebuilt ARC API libraries it links against.
 #
-# Built from source by gemini-rtsw-ci (profile: lightweight, EL8).
+# Built from source by gemini-rtsw-ci (profile: lightweight, EL9).
 #
-# Python 3.9 on purpose: the GNIRS DC runtime is EL8 with the python39 module
-# stream (see gnirsdc-data-manager), and a pybind11 module only loads into the
-# interpreter it was built for. custom-repo-setup.sh enables that stream.
+# For EL9's system Python 3.9, which the GNIRS DC image runs (see
+# gnirsdc-data-manager); a pybind11 module only loads into the interpreter it
+# was built for.
 
 %global specver 0.2.0
 # $GIT_HASH first: build_rpm.sh computes it on the host and passes it in; the
@@ -39,12 +39,12 @@ ExclusiveArch:  x86_64
 BuildRequires:  gcc-c++
 BuildRequires:  make
 BuildRequires:  git
-BuildRequires:  python39-devel
+BuildRequires:  python3-devel
 BuildRequires:  pybind11-devel
 BuildRequires:  json-c-devel
 BuildRequires:  libuuid-devel
 
-Requires:       python39
+Requires:       python3
 
 %description
 libgnirsioc, the pybind11 extension the GNIRS detector controller IOC uses to
@@ -93,8 +93,9 @@ LD_LIBRARY_PATH=%{buildroot}%{arclibdir} PYTHONPATH=%{buildroot}%{py39_sitearch}
 
 %changelog
 * Fri Oct 02 2026 Hawi Stecher <hawi.stecher@noirlab.edu> - 0.2.0-1
-- Build with gemini-rtsw-ci on GitHub. Built from source; installs the module
-  into Python 3.9 site-packages and the ARC libraries into a private directory.
+- Build with gemini-rtsw-ci on GitHub, for EL9. Built from source; installs the
+  module into Python 3.9 site-packages and the ARC libraries into a private
+  directory.
 
 * Mon Jun 06 2022 Hawi Stecher <hstecher@gemini.edu> 0.0.1-2
 - new package built with tito
