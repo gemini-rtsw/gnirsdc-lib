@@ -1,9 +1,7 @@
 # gnirsdc-lib: pybind11 extension (libgnirsioc) that drives the GNIRS DC ARC
 # controller, plus the prebuilt ARC API libraries it links against.
 #
-# Built from source by gemini-rtsw-ci (profile: lightweight, EL8). The
-# release/ directory in this repo holds the binaries the old GitLab pipeline
-# committed back; this spec ignores them and builds its own.
+# Built from source by gemini-rtsw-ci (profile: lightweight, EL8).
 #
 # Python 3.9 on purpose: the GNIRS DC runtime is EL8 with the python39 module
 # stream (see gnirsdc-data-manager), and a pybind11 module only loads into the

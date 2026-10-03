@@ -1,55 +1,50 @@
-# gnirsdc-lib Docker Environment
+# gnirsdc-lib
 
-## Overview
+`libgnirsioc`, the pybind11 extension the GNIRS detector controller IOC uses to
+drive the SDSU/ARC controller over PCIe, together with the prebuilt ARC API
+libraries it links against (`lib/`, headers in `include/`, source in `ARC_API/`).
 
-This repository contains a Docker environment for the `gnirsdc-lib` library. The image is based on Rocky Linux 9 and includes development packages for JSON, UUID, Pybind11, Python 3, and the GNU Compiler Collection.
+Built and published by [gemini-rtsw-ci](https://github.com/gemini-rtsw/gemini-rtsw-ci):
+every push to `main` builds the `gnirsdc-lib` RPM (EL8, Python 3.9) and
+publishes it to the shared rpm-repo. The GNIRS DC image gets it from there
+through `gnirsdc-data-manager`'s spec.
 
-## Building the Docker Image
+## What the RPM installs
 
-Navigate to the root directory of the `gnirsdc-lib` repository and execute the following command to build the Docker image:
+| path | what |
+|---|---|
+| `/usr/lib64/python3.9/site-packages/libgnirsioc.so` | the Python module |
+| `/usr/lib64/gnirsdc-lib/` | ARC libraries and cfitsio, found through the module's RPATH |
+| `/usr/include/gnirsdc-lib/libgnirsioc.h` | header |
 
-```bash
-docker build -t gnirsdc-lib-env .
-```
-
-For a Rocky Linux 8 image:
-
-```bash
-docker build -t gnirsdc-lib-env -f ./Dockerfile_rocky8 .
-```
-## Compiling the Library
-
-After building the image, you can compile the library using:
-
-```bash
-docker run --rm -v $(pwd):/work/$(basename $(pwd)) -it gnirsdc-lib-env bash -l -c "cd /work/$(basename $(pwd)) && make clean all"
-```
-
-This will mount the current working directory to a corresponding directory in the container, navigate to that directory, and run `make clean all`.
-
-## Python Environment Setup
-
-To use the compiled library in a Python environment, you can install it using pip:
-
-```bash
-pip install .
-```
-
-Usage:
-
-```bash
-python
+```python
 >>> import libgnirsioc
 >>> controller = libgnirsioc.controllerInterface()
 ```
 
+## Developing
+
+```bash
+git clone --recurse-submodules git@github.com:gemini-rtsw/gnirsdc-lib.git
+cd gnirsdc-lib
+./gemini-rtsw-ci/dev_environment.sh --el 8   # the environment CI builds in
+make                                          # inside the container
+```
+
+`make` writes `libgnirsioc.so` and a `release/` tree in the checkout; neither is
+committed.
+
+To build the RPM exactly as CI does:
+
+```bash
+./gemini-rtsw-ci/build_rpm.sh --el 8 --profile lightweight    # RPM lands in rpms/
+```
+
+Open a pull request to have CI build it; merging to `main` publishes it. See the
+gemini-rtsw-ci [WORKFLOW.md](https://github.com/gemini-rtsw/gemini-rtsw-ci/blob/main/WORKFLOW.md).
+
 ## Dependencies
 
-- `json-c-devel`: Development files for JSON-C, a JSON implementation in C.
-- `libuuid-devel`: Development files for Universally Unique Identifier library.
-- `pybind11-devel`: Development files for pybind11, a library for creating Python bindings to C++ code.
-- `python3-devel`: Development files and libraries for Python 3.
-- `g++`: GNU C++ compiler.
-- `make`: GNU make utility to maintain groups of programs.
-
-These dependencies are automatically installed when building the Docker image.
+Build: `gcc-c++`, `python39-devel`, `pybind11-devel`, `json-c-devel`,
+`libuuid-devel`. On EL8 those need EPEL, powertools and the `python39` /
+`python39-devel` module streams, which `custom-repo-setup.sh` enables.
